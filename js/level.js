@@ -223,9 +223,9 @@ function parseLevel(levelDef) {
       switch (ch) {
         case 'G': rowArr[col] = T.GROUND; break;
         case 'B': rowArr[col] = T.BRICK;  break;
-        case 'Q': rowArr[col] = T.QBLOCK; break;
-        case 'M': rowArr[col] = T.QBLOCK; break; // qblock w/ mushroom (flagged below)
-        case 'F': rowArr[col] = T.QBLOCK; break; // qblock w/ flower
+        case 'Q': rowArr[col] = T.SBLOCK; break;
+        case 'M': rowArr[col] = T.SBLOCK; break; // star block variant
+        case 'F': rowArr[col] = T.SBLOCK; break; // star block variant
         case '5': rowArr[col] = T.PIPE_TL; break;
         case '6': rowArr[col] = T.PIPE_TR; break;
         case '7': rowArr[col] = T.PIPE_BL; break;
@@ -311,8 +311,8 @@ export class Level {
   /** Hit a question / brick block from below. Returns item type spawned (or null). */
   hitBlock(col, row) {
     const tile = this.get(col, row);
-    if (tile === T.QBLOCK) {
-      this.tiles[row][col] = T.QUSED;
+    if (tile === T.SBLOCK) {
+      this.tiles[row][col] = T.SUSED;
       const key = `${col},${row}`;
       const item = this.blockItems.get(key) ?? SPAWN.STAR;
       this.blockItems.delete(key);
@@ -355,8 +355,8 @@ export class Level {
     switch (tile) {
       case T.GROUND:   spr = Sprites.GROUND(); break;
       case T.BRICK:    spr = Sprites.BRICK();  break;
-      case T.QBLOCK:   spr = this._qframe === 0 ? Sprites.QBLOCK_1() : Sprites.QBLOCK_2(); break;
-      case T.QUSED:    spr = Sprites.QUSED();  break;
+      case T.SBLOCK:   spr = this._qframe === 0 ? Sprites.QBLOCK_1() : Sprites.QBLOCK_2(); break;
+      case T.SUSED:    spr = Sprites.QUSED();  break;
       case T.DRAWN:
         ctx.fillStyle = 'rgba(120, 60, 20, 0.85)';
         ctx.fillRect(sx, sy, TILE, TILE);

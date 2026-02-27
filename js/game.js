@@ -38,6 +38,8 @@ const SYNC_RATE = 3;
 export class Game {
   constructor(canvas, network, localPlayerIndex) {
     this.canvas   = canvas;
+    canvas.width  = CANVAS_W;
+    canvas.height = CANVAS_H;
     this.ctx      = canvas.getContext('2d');
     this.net      = network;
     this.localIdx = localPlayerIndex;
@@ -523,7 +525,7 @@ export class Game {
     const rightCol = Math.floor((player.x + player.w - 1) / TILE);
     for (const col of [leftCol, rightCol]) {
       const tile = this.level.get(col, headRow);
-      if (tile === T.QBLOCK || tile === T.BRICK) {
+      if (tile === T.SBLOCK || tile === T.BRICK) {
         const item = this.level.hitBlock(col, headRow);
         if (item === SPAWN.STAR) {
           this.stars.push(new Star(col * TILE + 8, headRow * TILE, true));
