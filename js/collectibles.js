@@ -179,11 +179,13 @@ export class AbilityStar {
     this.onGround = false;
     this._life   = 300;  // 5 seconds
     this._bob    = 0;
+    this._pickupDelay = 40; // frames before player can re-collect
   }
 
   update(level, dt) {
     this._life -= dt;
     this._bob  += dt * 0.12;
+    if (this._pickupDelay > 0) this._pickupDelay -= dt;
     if (this._life <= 0) { this.dead = true; return; }
     if (!this.onGround) {
       this.onGround = false;

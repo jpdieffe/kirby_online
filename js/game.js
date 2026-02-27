@@ -459,10 +459,11 @@ export class Game {
 
       // Player ↔ ability stars (dropped abilities)
       for (const a of this.abilityStars) {
-        if (!a.dead && overlaps(player, a) && player.copyAbility === null) {
+        if (!a.dead && a._pickupDelay <= 0 && overlaps(player, a) && player.copyAbility === null) {
           a.dead = true;
           player.copyAbility = a.ability;
-          player.abilityAmmo = 3;
+          player.abilityAmmo = Infinity;
+          player._abilityHits = 0;
           this._addScorePop(a.x, a.y, ABILITY_INFO[a.ability]?.icon ?? '?');
         }
       }
