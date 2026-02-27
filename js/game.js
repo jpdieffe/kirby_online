@@ -287,6 +287,7 @@ export class Game {
       action:     snap.action     ?? false,
       actionJust: snap.actionJust ?? false,
       jumpJust:   snap.jumpJust   ?? false,
+      dropJust:   snap.dropJust   ?? false,
     };
   }
 
