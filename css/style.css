@@ -1,0 +1,213 @@
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #FFB6D9;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+/* ===== LOBBY ===== */
+#lobby {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.lobby-box {
+  background: linear-gradient(135deg, #FF88BB 0%, #CC66EE 100%);
+  border: 3px solid #FFD6EE;
+  border-radius: 20px;
+  padding: 36px 44px;
+  max-width: 700px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 0 50px rgba(255, 100, 180, 0.5);
+}
+
+.lobby-box h1 {
+  font-size: 2rem;
+  color: #FFFFFF;
+  text-shadow: 0 2px 8px rgba(200,0,100,0.4);
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  color: #FFE0F0;
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+}
+
+.version {
+  color: #FF99CC;
+  font-size: 0.75rem;
+  margin-bottom: 28px;
+  letter-spacing: 1px;
+}
+
+/* Two-column layout */
+.lobby-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.lobby-col {
+  flex: 1;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.lobby-col h2 {
+  font-size: 1.1rem;
+  color: #FFFDE0;
+  margin-bottom: 8px;
+}
+
+.col-hint {
+  color: #FFE0F4;
+  font-size: 0.8rem;
+  margin-bottom: 14px;
+  min-height: 32px;
+}
+
+.lobby-divider {
+  color: #FFD0E8;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0 8px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* Room name row: input + dice button */
+.room-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.room-row input {
+  flex: 1;
+}
+
+/* Generic lobby inputs */
+.lobby-col input,
+.room-row input {
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.5);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 10px 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+  text-transform: uppercase;
+}
+.lobby-col input::placeholder,
+.room-row input::placeholder { color: rgba(255,255,255,0.5); }
+.lobby-col input:focus,
+.room-row input:focus { border-color: #FFFDE0; }
+
+/* Dice / random button */
+.btn-icon {
+  background: rgba(255,255,255,0.2);
+  border: 2px solid rgba(255,255,255,0.4);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 12px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.btn-icon:hover { background: rgba(255,255,255,0.35); }
+
+/* Buttons */
+.btn-primary {
+  background: #FF3399;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 12px 28px;
+  transition: background 0.15s, transform 0.1s;
+  width: 100%;
+  margin-top: 10px;
+  box-shadow: 0 3px 12px rgba(200,0,100,0.4);
+}
+.btn-primary:hover { background: #FF55AA; }
+.btn-primary:active { transform: scale(0.97); }
+
+.status-msg {
+  margin-top: 10px;
+  min-height: 20px;
+  font-size: 0.85rem;
+  color: #DDFFCC;
+}
+.status-msg.error { color: #FFAACC; }
+
+/* ===== GAME SCREEN ===== */
+#game-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+#hud {
+  background: linear-gradient(90deg, #FF66AA 0%, #AA44CC 100%);
+  border-bottom: 2px solid #FFD0E8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 24px;
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+#game-canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: default;
+  flex: 1;
+  max-height: calc(100vh - 42px);
+}
+
+#game-msg {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(180, 50, 140, 0.92);
+  border: 3px solid #FFD0E8;
+  border-radius: 20px;
+  color: #FFEEEE;
+  font-size: 2rem;
+  font-weight: 800;
+  padding: 28px 52px;
+  text-align: center;
+  z-index: 100;
+  pointer-events: none;
+}
