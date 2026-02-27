@@ -62,6 +62,20 @@ export class Game {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
+    // Direct R-key handler to drop ability (bypasses snapshot pipeline)
+    this._onKeyR = (e) => {
+      if (e.code !== 'KeyR' || e.repeat) return;
+      const p = this.players?.[this.localIdx];
+      if (p && p.copyAbility !== null && this.abilityStars) {
+        const dropped = p.copyAbility;
+        p.copyAbility  = null;
+        p.abilityAmmo  = 0;
+        p._abilityHits = 0;
+        this.abilityStars.push(new AbilityStar(p.x, p.y, dropped, ABILITY_INFO[dropped]));
+      }
+    };
+    window.addEventListener('keydown', this._onKeyR);
+
     if (this.net) this.net.onMessage = (msg) => this._handleNetMsg(msg);
 
     // Collectible / visual state
@@ -878,6 +892,7 @@ export class Game {
 
   stop() {
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+    if (this._onKeyR) { window.removeEventListener('keydown', this._onKeyR); }
   }
 
   // ── Resize ───────────────────────────────────────────────
