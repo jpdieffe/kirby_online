@@ -28,6 +28,9 @@ export class Input {
     this.jump = false;
     this.jumpJust = false;
 
+    // R – drop current ability
+    this.dropJust = false;
+
     // Chat
     this.chatMode   = false;
     this.chatBuffer = '';
@@ -74,6 +77,7 @@ export class Input {
       this.jumpJust  = false;
       this.action    = false;
       this.actionJust = false;
+      this.dropJust   = false;
       this._prev = new Set(this._held);
       return;
     }
@@ -93,6 +97,10 @@ export class Input {
     this.action     = actNow;
     this.actionJust = actNow && !actBefore;
 
+    const dropNow    = this._held.has('KeyR');
+    const dropBefore = this._prev.has('KeyR');
+    this.dropJust    = dropNow && !dropBefore;
+
     this._prev = new Set(this._held);
   }
 
@@ -106,6 +114,7 @@ export class Input {
       action:     this.action,
       actionJust: this.actionJust,
       jumpJust:   this.jumpJust,
+      dropJust:   this.dropJust,
     };
   }
 
@@ -119,6 +128,7 @@ export class Input {
     this.action     = snap.action     ?? false;
     this.actionJust = snap.actionJust ?? false;
     this.jumpJust   = snap.jumpJust   ?? false;
+    this.dropJust   = snap.dropJust   ?? false;
   }
 
   /** No-op – kept for API compatibility (no mouse needed in Kirby). */

@@ -421,7 +421,9 @@ export class LeafTornado {
     if (this.dead) return; this._life -= dt; this._rot += 0.25 * dt;
     if (this._life <= 0) { this.dead = true; return; }
     this.x += this.vx * dt; this.y += this.vy * dt;
-    if (level.isSolid(Math.floor((this.x + 12) / 32), Math.floor((this.y + 16) / 32))) this.dead = true;
+    // Only check the tile in the forward direction (not below) so ground doesn't kill it
+    const fwdX = this.dir > 0 ? this.x + this.w : this.x;
+    if (level.isSolid(Math.floor(fwdX / 32), Math.floor((this.y + this.h / 2) / 32))) this.dead = true;
   }
   draw(ctx, cam) {
     if (this.dead) return;

@@ -214,6 +214,13 @@ export class Game {
     for (const player of this._activePlayers()) {
       if (player.isInhaling && !player.inhaledEnemy) this._handleInhale(player);
 
+      // R drop → spawn AbilityStar
+      if (player._justDropAbility) {
+        this.abilityStars.push(new AbilityStar(
+          player.x, player.y, player._justDropAbility, ABILITY_INFO[player._justDropAbility]
+        ));
+      }
+
       // Spit → spawn InhaleStar
       if (player._justSpit) {
         const en  = player._justSpit;
@@ -345,7 +352,8 @@ export class Game {
         proj = new SumoStomp(player.x + player.w / 2, player.y + player.h, 96);
         break;
       case ABILITY.LEAF:
-        proj = new LeafTornado(cx, cy, dir);
+        // Spawn at head height so it doesn't immediately collide with the floor
+        proj = new LeafTornado(cx, player.y + 4, dir);
         break;
       case ABILITY.ROCK:
         player.vy = 8;
@@ -355,21 +363,37 @@ export class Game {
   }
 
   _swordSlash(player) {
-    const range = 48;
+    const range = 56;
     const cx    = player.x + player.w / 2;
     const cy    = player.y + player.h / 2;
     const dir   = player.facingRight ? 1 : -1;
+    let   hit   = false;
     for (const enemy of this.enemies) {
       if (enemy.dead) continue;
       const ex = enemy.x + enemy.w / 2;
       const ey = enemy.y + enemy.h / 2;
-      if (Math.abs(ex - cx) < range && Math.abs(ey - cy) < player.h && Math.sign(ex - cx) === dir) {
+      // direction check: enemy must be in front (allow edge overlap with -8 tolerance)
+      const inFront = (ex - cx) * dir > -8;
+      if (inFront && Math.abs(ex - cx) < range && Math.abs(ey - cy) < player.h + enemy.h / 2) {
         const pts = enemy.kill();
         if (pts > 0) {
           player.score += pts;
           this._addScorePop(enemy.x, enemy.y, String(pts));
+          hit = true;
         }
       }
+    }
+    // Visual slash arc (always shows even if no enemy hit)
+    const slashX = cx + dir * 20;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 5) * Math.PI * 0.8 - Math.PI * 0.4;
+      const speed = 4 + Math.random() * 2;
+      this.particles.push(new Particle(
+        slashX, cy,
+        dir * Math.cos(angle) * speed,
+        Math.sin(angle) * speed - 1,
+        '#E8E8FF', 14
+      ));
     }
   }
 

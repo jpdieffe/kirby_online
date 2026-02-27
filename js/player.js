@@ -56,9 +56,13 @@ export class Player {
     this._drawFrame    = 0;
     this._prevDown     = false;
 
+    // 2-hit ability shield
+    this._abilityHits    = 0;
+
     // Event flags checked by game.js each frame
-    this._justSpit       = null;  // enemy that was spit out (for InhaleStar creation)
-    this._justUsedAbility= false; // true when ability is fired this frame
+    this._justSpit         = null;  // enemy that was spit out (for InhaleStar creation)
+    this._justUsedAbility  = false; // ability type fired this frame
+    this._justDropAbility  = false; // true when R pressed to drop ability
   }
 
   /* ─── Update ─────────────────────────────────────── */
@@ -78,6 +82,7 @@ export class Player {
     // Reset per-frame event flags
     this._justSpit        = null;
     this._justUsedAbility = false;
+    this._justDropAbility = false;
 
     const onGndPrev = this.onGround;
 
@@ -96,10 +101,16 @@ export class Player {
         this._spit();
       }
     } else if (this.copyAbility !== null) {
-      // Use ability on actionJust
+      // Use ability on actionJust; R drops it
       this.isInhaling = false;
       if (input.actionJust) {
         this._useAbility();
+      }
+      if (input.dropJust) {
+        this._justDropAbility = this.copyAbility;  // stash for game.js
+        this.copyAbility  = null;
+        this.abilityAmmo  = 0;
+        this._abilityHits = 0;
       }
     } else {
       // Inhale when no ability
@@ -178,14 +189,10 @@ export class Player {
   /* ─── Ability use (returns projectile or null) ───── */
 
   _useAbility() {
-    if (this.copyAbility === null || this.abilityAmmo <= 0) return null;
+    if (this.copyAbility === null) return null;
     const used = this.copyAbility;
     this._justUsedAbility = used;  // game.js reads this to spawn projectile
-    if (this.abilityAmmo !== Infinity) this.abilityAmmo--;
-    if (this.abilityAmmo === 0) {
-      this.copyAbility = null;
-      this.abilityAmmo = 0;
-    }
+    // Ability is NEVER consumed by use – only lost when hit twice
     return used;
   }
 
@@ -196,8 +203,9 @@ export class Player {
     const ability = this.inhaledEnemy.abilityType;
     this.inhaledEnemy = null;
     if (ability !== null && ability !== undefined) {
-      this.copyAbility = ability;
-      this.abilityAmmo = ABILITY_AMMO[ability] ?? 6;
+      this.copyAbility  = ability;
+      this.abilityAmmo  = Infinity;  // never runs out
+      this._abilityHits = 0;         // reset hit counter
     }
     this.score += 200;
   }
@@ -218,11 +226,17 @@ export class Player {
   hurt() {
     if (this._invuln > 0) return false;
     if (this.copyAbility !== null) {
-      // Lose ability, no HP loss
-      this.copyAbility = null;
-      this.abilityAmmo = 0;
+      this._abilityHits++;
       this._invuln = INVULN_FRAMES;
-      return false; // signal: drop AbilityStar, but no life lost
+      if (this._abilityHits >= 2) {
+        // Second hit – lose ability (still no HP loss)
+        this.copyAbility  = null;
+        this.abilityAmmo  = 0;
+        this._abilityHits = 0;
+        return false; // signal: drop AbilityStar
+      }
+      // First hit – flash but keep ability
+      return false;
     }
     this.hp--;
     this._invuln = INVULN_FRAMES;
