@@ -8,7 +8,7 @@ export const CFG = {
   // Standard movement
   JUMP_VEL:          -9.0,
   JUMP_HOLD_FRAMES:   10,
-  GRAVITY_RISE:       0.09,
+  GRAVITY_RISE:       0.04,
   GRAVITY_FALL:       0.40,
   WALK_SPD:           2.4,
   RUN_SPD:            2.4,
