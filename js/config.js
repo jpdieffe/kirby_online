@@ -8,15 +8,15 @@ export const CFG = {
   // Standard movement
   JUMP_VEL:          -9.0,
   JUMP_HOLD_FRAMES:   10,
-  GRAVITY_RISE:       0.28,
+  GRAVITY_RISE:       0.09,
   GRAVITY_FALL:       0.40,
   WALK_SPD:           2.4,
   RUN_SPD:            2.4,
-  MAX_FALL:           12,
+  MAX_FALL:           7.5,
 
   // Float / fly
-  FLOAT_GRAVITY:      0.1,    // gentle gravity while puffed up
-  FLOAT_MAX_FALL:     1.0,    // max descent speed while floating
+  FLOAT_GRAVITY:      0.01,   // very gentle gravity while puffed up
+  FLOAT_MAX_FALL:     0.3,    // max descent speed while floating
   FLOAT_FLAP_VEL:    -3.2,   // upward burst per flap press
   MAX_FLOAT_FLAPS:    19,     // flaps before no longer gaining height
 
