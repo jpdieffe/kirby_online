@@ -15,10 +15,10 @@ export const CFG = {
   MAX_FALL:           12,
 
   // Float / fly
-  FLOAT_GRAVITY:      0.04,   // very gentle gravity while puffed up
+  FLOAT_GRAVITY:      0.1,    // gentle gravity while puffed up
   FLOAT_MAX_FALL:     1.0,    // max descent speed while floating
   FLOAT_FLAP_VEL:    -3.2,   // upward burst per flap press
-  MAX_FLOAT_FLAPS:    6,      // flaps before no longer gaining height
+  MAX_FLOAT_FLAPS:    19,     // flaps before no longer gaining height
 
   // Inhale
   INHALE_RANGE:       96,     // forward reach (px)

@@ -752,14 +752,15 @@ export class Game {
       ctx.restore();
     }
 
-    // Waiting for P2 overlay
+    // Waiting for P2 – small top banner, doesn't block the game
     if (this.isHost && !this.peerConnected) {
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('Waiting for Player 2…', CANVAS_W / 2, CANVAS_H / 2 - 10);
-      if (this._peerCode) ctx.fillText('Room: ' + this._peerCode, CANVAS_W / 2, CANVAS_H / 2 + 18);
-      ctx.textAlign = 'left';
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, 0, CANVAS_W, 26);
+      ctx.fillStyle = '#FFE040'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+      const label = this._peerCode ? 'Waiting for P2 — ' + this._peerCode : 'Waiting for Player 2…';
+      ctx.fillText(label, CANVAS_W / 2, 17);
+      ctx.restore();
     }
   }
 

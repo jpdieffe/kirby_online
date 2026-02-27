@@ -89,6 +89,7 @@ export class Player {
     // ── Inhale toggle ────────────────────────────────
     if (this.inhaledEnemy) {
       // Gordo mode: down = swallow, space = spit
+      this.isInhaling = false;
       if (input.down && !this._prevDown) {
         this._swallow();
       } else if (input.actionJust) {
@@ -96,6 +97,7 @@ export class Player {
       }
     } else if (this.copyAbility !== null) {
       // Use ability on actionJust
+      this.isInhaling = false;
       if (input.actionJust) {
         this._useAbility();
       }
