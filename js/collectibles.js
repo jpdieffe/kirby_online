@@ -529,7 +529,3 @@ function _drawStar4(ctx, cx, cy, r) {
   ctx.fill();
 }
 
-let _nextId = 1000;
-
-// ── Coin ─────────────────────────────────────────────────
-
