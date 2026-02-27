@@ -62,19 +62,7 @@ export class Game {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
-    // Direct R-key handler to drop ability (bypasses snapshot pipeline)
-    this._onKeyR = (e) => {
-      if (e.code !== 'KeyR' || e.repeat) return;
-      const p = this.players?.[this.localIdx];
-      if (p && p.copyAbility !== null && this.abilityStars) {
-        const dropped = p.copyAbility;
-        p.copyAbility  = null;
-        p.abilityAmmo  = 0;
-        p._abilityHits = 0;
-        this.abilityStars.push(new AbilityStar(p.x, p.y, dropped, ABILITY_INFO[dropped]));
-      }
-    };
-    window.addEventListener('keydown', this._onKeyR);
+    // Direct R-key handler removed — drop is now handled in update()
 
     if (this.net) this.net.onMessage = (msg) => this._handleNetMsg(msg);
 
@@ -173,6 +161,18 @@ export class Game {
     if (this._state !== STATE.PLAYING) return;
     this._frame++;
     if (this._localInput) this._localInput.update();
+
+    // ── R key: drop ability (runs every frame, reads raw input) ──
+    if (this._localInput && this._localInput.dropJust) {
+      const p = this.players[this.localIdx];
+      if (p && p.copyAbility !== null) {
+        const dropped = p.copyAbility;
+        p.copyAbility  = null;
+        p.abilityAmmo  = 0;
+        p._abilityHits = 0;
+        this.abilityStars.push(new AbilityStar(p.x, p.y - 16, dropped, ABILITY_INFO[dropped]));
+      }
+    }
 
     const localP  = this.players[this.localIdx];
     const remoteP = this.players[1 - this.localIdx];
@@ -893,7 +893,6 @@ export class Game {
 
   stop() {
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
-    if (this._onKeyR) { window.removeEventListener('keydown', this._onKeyR); }
   }
 
   // ── Resize ───────────────────────────────────────────────
