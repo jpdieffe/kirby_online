@@ -54,6 +54,7 @@ joinInput.addEventListener('keydown',     (e) => { if (e.key === 'Enter') btnJoi
 //  Lobby: Host flow 
 
 btnHost.addEventListener('click', () => {
+  try {
   const roomName = hostNameInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!roomName) { setStatus(hostStatus, 'Enter a room name first.', true); return; }
 
@@ -77,6 +78,7 @@ btnHost.addEventListener('click', () => {
   };
 
   net.host(roomName);
+  } catch(err) { setStatus(hostStatus, 'JS Error: ' + err.message, true); btnHost.disabled = false; btnJoin.disabled = false; console.error(err); throw err; }
 });
 
 //  Lobby: Join flow 
