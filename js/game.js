@@ -20,6 +20,7 @@ import {
 } from './collectibles.js';
 import { overlaps, stompCheck } from './physics.js';
 import { preloadSprites } from './sprites.js';
+import { preloadKirbySprites } from './kirby_sprites.js';
 
 const STATE = {
   LOADING:  'loading',
@@ -135,6 +136,7 @@ export class Game {
     this._frame    = 0;
 
     preloadSprites();
+    preloadKirbySprites();
   }
 
   _spawnLevelEntities() {

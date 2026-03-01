@@ -6,6 +6,7 @@
 import { TILE, PSTATE, ABILITY, ABILITY_INFO, ABILITY_AMMO } from './constants.js';
 import { CFG } from './config.js';
 import { resolveEntity, levelBoundaryCheck } from './physics.js';
+import { drawKirby } from './kirby_sprites.js';
 
 const W  = 24;
 const H  = 24;
@@ -268,22 +269,22 @@ export class Player {
 
     const sx = Math.round(this.x - camera.x);
     const sy = Math.round(this.y - camera.y);
-    const body = KIRBY_COLORS[this.id & 1];
-    const foot = FOOT_COLORS[this.id & 1];
-    const fr = this.facingRight;
 
-    // ── Body ────────────────────────────────────────
-    ctx.fillStyle = body;
-    ctx.beginPath();
-    ctx.ellipse(sx + W / 2, sy + H * 0.52, W * 0.48, H * 0.44, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Use pixel-art sprite system
+    drawKirby(
+      ctx,
+      this.id & 1,          // playerIdx (0=pink, 1=blue)
+      this.state,            // PSTATE value
+      this.facingRight,
+      this._animFrame,       // 0 or 1 for walk toggle
+      this.copyAbility,      // ability enum or null
+      { isInhaling: this.isInhaling, isFloating: this.isFloating, inhaledEnemy: this.inhaledEnemy },
+      sx, sy, W, H
+    );
 
-    // ── Puffed cheeks when inhaling ─────────────────
+    // Inhale wind lines (drawn on top of sprite when inhaling)
     if (this.state === PSTATE.INHALING || this.isInhaling) {
-      ctx.fillStyle = '#FFD0E8';
-      const px = fr ? sx + W * 0.75 : sx + W * 0.25;
-      ctx.beginPath(); ctx.ellipse(px, sy + H * 0.52, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
-      // Inhale wind lines
+      const fr = this.facingRight;
       ctx.strokeStyle = 'rgba(255,200,230,0.7)'; ctx.lineWidth = 2;
       const lineX = fr ? sx + W : sx;
       for (let i = -1; i <= 1; i++) {
@@ -294,54 +295,6 @@ export class Player {
         ctx.stroke();
       }
     }
-
-    // ── Face (slightly bigger when inhaling) ────────
-    const eyeOff = this.state === PSTATE.INHALING ? 3 : 1;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.35, sy + H * 0.38, 4, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.65, sy + H * 0.38, 4, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.35 + eyeOff * (fr ? 1 : -1), sy + H * 0.4, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.65 + eyeOff * (fr ? 1 : -1), sy + H * 0.4, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
-
-    // Rosy cheeks
-    ctx.fillStyle = 'rgba(255,100,150,0.5)';
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.2, sy + H * 0.5, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.8, sy + H * 0.5, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
-
-    // Mouth (open when inhaling or using ability)
-    if (this.state === PSTATE.INHALING || this.state === PSTATE.USING) {
-      ctx.fillStyle = '#AA0033';
-      ctx.beginPath(); ctx.ellipse(sx + W / 2, sy + H * 0.58, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // Arms (bounce with walk cycle)
-    const armBob = (this.state === PSTATE.WALK) ? Math.sin(this._animFrame * Math.PI) * 2 : 0;
-    ctx.fillStyle = body;
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.08, sy + H * 0.45 + armBob, 5, 6, -0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx + W * 0.92, sy + H * 0.45 - armBob, 5, 6, 0.3, 0, Math.PI * 2); ctx.fill();
-
-    // Feet (hide when floating – puffed up)
-    if (!this.isFloating) {
-      ctx.fillStyle = foot;
-      ctx.beginPath(); ctx.ellipse(sx + W * 0.3, sy + H * 0.94, W * 0.17, H * 0.08, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(sx + W * 0.7, sy + H * 0.94, W * 0.17, H * 0.08, 0, 0, Math.PI * 2); ctx.fill();
-    } else {
-      // Extra puff when floating
-      ctx.fillStyle = body;
-      ctx.beginPath(); ctx.ellipse(sx + W / 2, sy + H * 0.7, W * 0.52, H * 0.38, 0, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // ── Copy Ability icon ────────────────────────────
-    if (this.copyAbility !== null) {
-      const info = ABILITY_INFO[this.copyAbility];
-      ctx.fillStyle = info?.color ?? '#fff';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(info?.icon ?? '?', sx + W / 2, sy - 4);
-    }
-
-    ctx.textAlign = 'left';
   }
 
   /* ─── Serialization ───────────────────────────────── */
