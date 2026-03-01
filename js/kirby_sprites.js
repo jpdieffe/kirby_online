@@ -248,18 +248,11 @@ const HAT_SUMO = [
   '________________', '________________', '________________',
   '________________', '________________', '________________', '________________',
 ];
-const HAT_LEAF = [
-  '___Xv__vX_______', '___VXvvXV_______', '____VVVV________',
-  '___XVxvVX_______', '___VvvvvV_______', '___vvvvvv_______',
-  '________________', '________________', '________________',
-  '________________', '________________', '________________',
-  '________________', '________________', '________________', '________________',
-];
-
 const HAT_GRIDS = {
   sword: HAT_SWORD, fire: HAT_FIRE, ice: HAT_ICE,
   water: HAT_WATER, rock: HAT_ROCK, lightning: HAT_LIGHTNING,
-  ninja: HAT_NINJA, sumo: HAT_SUMO, leaf: HAT_LEAF,
+  ninja: HAT_NINJA, sumo: HAT_SUMO,
+  // leaf uses the canvas-drawn system below instead of a pixel grid
 };
 
 const _hatCache = {};
@@ -301,6 +294,137 @@ function _getHat(ability) {
   const left  = _flipGrid(right);
   _hatCache[ability] = { right, left };
   return _hatCache[ability];
+}
+
+// ── Leaf Crown + Floating Particles (canvas-drawn) ────────
+
+const LEAF_COLORS = [
+  { fill: '#33CC44', dark: '#228833', stem: '#1A6625' },  // bright green
+  { fill: '#44DD55', dark: '#2EA03A', stem: '#1F7728' },  // lime green
+  { fill: '#28B838', dark: '#1C8A2A', stem: '#166620' },  // forest green
+  { fill: '#55EE55', dark: '#33AA33', stem: '#228822' },  // light green
+  { fill: '#3BD04A', dark: '#279935', stem: '#1D7729' },  // mid green
+];
+
+const PARTICLE_LEAVES = [
+  { radius: 0.65, speed: 1.8,  phase: 0,           size: 0.14 },
+  { radius: 0.55, speed: -2.3, phase: Math.PI*0.7,  size: 0.11 },
+  { radius: 0.75, speed: 1.4,  phase: Math.PI*1.4,  size: 0.12 },
+];
+
+/**
+ * Draw a single leaf shape at the origin pointing right.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} size  leaf length in pixels
+ * @param {object} colors  { fill, dark, stem }
+ */
+function _drawLeafShape(ctx, size, colors) {
+  const hw = size * 0.38; // half-width
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(size * 0.25, -hw, size * 0.65, -hw * 0.9, size, 0);
+  ctx.bezierCurveTo(size * 0.65,  hw * 0.9, size * 0.25,  hw, 0, 0);
+  ctx.closePath();
+  ctx.fillStyle = colors.fill;
+  ctx.fill();
+  ctx.strokeStyle = colors.dark;
+  ctx.lineWidth = Math.max(0.5, size * 0.06);
+  ctx.stroke();
+
+  // center vein
+  ctx.beginPath();
+  ctx.moveTo(size * 0.12, 0);
+  ctx.lineTo(size * 0.85, 0);
+  ctx.strokeStyle = colors.stem;
+  ctx.lineWidth = Math.max(0.4, size * 0.05);
+  ctx.stroke();
+
+  // side veins
+  for (let t = 0.3; t <= 0.7; t += 0.2) {
+    const vx = size * t;
+    const vy = 0;
+    const tipLen = size * 0.18;
+    ctx.beginPath();
+    ctx.moveTo(vx, vy);
+    ctx.lineTo(vx + tipLen * 0.6, -tipLen * 0.7);
+    ctx.moveTo(vx, vy);
+    ctx.lineTo(vx + tipLen * 0.6,  tipLen * 0.7);
+    ctx.strokeStyle = colors.stem;
+    ctx.lineWidth = Math.max(0.3, size * 0.035);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Draw the leaf crown (wreath of leaves) on Kirby's head.
+ */
+function _drawLeafCrown(ctx, x, y, w, h, facingRight) {
+  const t = Date.now() / 1000;
+  const cx = x + w * 0.5;
+  const crownY = y + h * 0.08;  // top of head
+  const crownRx = w * 0.38;     // horizontal spread
+  const crownRy = h * 0.12;     // vertical arc
+  const leafSize = w * 0.35;
+
+  const leaves = [
+    { angle: -0.45, offset: -0.80 },
+    { angle: -0.20, offset: -0.40 },
+    { angle:  0.00, offset:  0.00 },
+    { angle:  0.20, offset:  0.40 },
+    { angle:  0.45, offset:  0.80 },
+  ];
+
+  ctx.save();
+  for (let i = 0; i < leaves.length; i++) {
+    const leaf = leaves[i];
+    const colors = LEAF_COLORS[i];
+    // Gentle sway per leaf
+    const sway = Math.sin(t * 2.5 + i * 1.1) * 0.12;
+    const lx = cx + leaf.offset * crownRx * (facingRight ? 1 : -1);
+    const ly = crownY - crownRy * Math.cos(leaf.offset * 1.2);
+    const baseAngle = leaf.angle * (facingRight ? 1 : -1);
+    const finalAngle = baseAngle + sway - Math.PI * 0.5; // point upward
+
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.rotate(finalAngle);
+    _drawLeafShape(ctx, leafSize, colors);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/**
+ * Draw floating leaf particles orbiting Kirby.
+ */
+function _drawLeafParticles(ctx, x, y, w, h) {
+  const t = Date.now() / 1000;
+  const cx = x + w * 0.5;
+  const cy = y + h * 0.45;
+
+  ctx.save();
+  ctx.globalAlpha = 0.75;
+  for (let i = 0; i < PARTICLE_LEAVES.length; i++) {
+    const p = PARTICLE_LEAVES[i];
+    const colors = LEAF_COLORS[i % LEAF_COLORS.length];
+    const angle = t * p.speed + p.phase;
+    const rx = w * p.radius;
+    const ry = h * p.radius * 0.55; // slightly elliptical orbit
+    const px = cx + Math.cos(angle) * rx;
+    const py = cy + Math.sin(angle) * ry;
+    const pSize = w * p.size;
+    // Leaf wobble
+    const wobble = Math.sin(t * 4 + i * 2.2) * 0.5;
+    // Fade when behind Kirby (bottom of orbit)
+    const depthFade = 0.5 + 0.5 * Math.sin(angle);
+    ctx.save();
+    ctx.globalAlpha = 0.5 + depthFade * 0.4;
+    ctx.translate(px, py);
+    ctx.rotate(angle + wobble);
+    _drawLeafShape(ctx, pSize, colors);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 // ── Fallback drawing (before sprites finish loading) ──────
@@ -349,7 +473,14 @@ export function drawKirby(ctx, playerIdx, state, facingRight, _af, ability, extr
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(sprite, x, y, w, h);
 
-  // Hat overlay for copy abilities
+  // Leaf ability: canvas-drawn crown + floating particles
+  if (ability === 'leaf') {
+    _drawLeafCrown(ctx, x, y, w, h, facingRight);
+    _drawLeafParticles(ctx, x, y, w, h);
+    return;
+  }
+
+  // Hat overlay for other copy abilities
   const hat = _getHat(ability);
   if (hat) {
     const hatSprite = facingRight ? hat.right : hat.left;
