@@ -1,39 +1,63 @@
-# 🍄 Mario Online – Co-op
+# ⭐ Kirby Online – Co-op
 
-A browser-based 2-player co-operative Mario clone using peer-to-peer WebRTC (no server needed).
+A browser-based 2-player co-operative Kirby game using peer-to-peer WebRTC (no server needed).
 
-## Play
+## 🎮 Play Now
 
-Open on **GitHub Pages** and share the code with a friend.
-
-URL: `https://<your-username>.github.io/<repo-name>/`
+**https://jpdieffe.github.io/kirby_online/**
 
 ## Controls
 
-| Action | Player 1 (Mario) | Player 2 (Luigi) |
-|--------|-----------------|-----------------|
-| Move   | Arrow Keys / WASD | Same keys |
-| Jump   | Space / Up / W  | Same |
-| Run    | Shift / Z       | Same |
-| Fire   | X (fire power)  | Same |
+| Action | Key |
+|--------|-----|
+| Move | Arrow Keys |
+| Jump / Float | Up Arrow (press again in air to float, keep pressing to flap) |
+| Inhale | Space (hold to suck in nearby enemies) |
+| Swallow (gain power) | Down (while holding enemy in mouth) |
+| Spit star | Space (while holding enemy in mouth) |
+| Use copy ability | Space (when you have a power) |
+| Drop ability | R |
+| Chat | Y |
+| Debug panel | ` (tilde) |
 
 ## How to Play Together
 
-1. **Player 1** opens the page and clicks **"Host Game"**
-2. A short code appears – share it with Player 2 (copy/paste)
-3. **Player 2** opens the page, pastes the code, and clicks **"Join Game"**
-4. Both players appear in the level. Work together to reach the goal flag!
+1. **Player 1** opens the page, enters a room name (e.g. `BANANA`), and clicks **Create Room**
+2. Share the room name with Player 2
+3. **Player 2** opens the page, types the same room name, and clicks **Join Room**
+4. Both Kirbys appear in the level — work together to reach the goal!
+
+## Copy Abilities
+
+Inhale an enemy, then press **Down** to swallow and gain their power:
+
+| Enemy | Ability | Effect |
+|-------|---------|--------|
+| Sword Knight | ⚔️ Sword | Slash nearby enemies |
+| Hot Head | 🔥 Fire | Shoot fireballs |
+| Chilly | ❄️ Ice | Shoot ice breath |
+| Droppy | 💧 Water | Shoot water balls |
+| Rocky | 🪨 Rock | Slam downward |
+| Sparky | ⚡ Lightning | Strike a lightning bolt |
+| BioSpark | 🥷 Ninja | Throw ninja stars |
+| Sumo Knight | 🏋️ Sumo | Ground pound shockwave |
+| Leaf Waddle | 🍃 Leaf | Launch leaf tornado |
+
+- Abilities are **infinite use** — you never run out
+- Getting hit **twice** drops your ability
+- Press **R** to drop it voluntarily
+- Dropped abilities float as stars you can re-collect
 
 ## Features
 
-- ✅ 2-player co-op via WebRTC (PeerJS free signaling)
-- ✅ Mario (P1) & Luigi (P2) with pixel art sprites
-- ✅ Platformer physics — jump, run, gravity
-- ✅ Enemies: Goombas & Koopas (w/ shell kicks)
-- ✅ Coins & question blocks
-- ✅ Power-ups: Mushroom (grow) & Fire Flower (shoot fireballs)
-- ✅ 2 levels (overworld + underground)
-- ✅ Lives & score system
+- ✅ 2-player co-op via WebRTC (PeerJS, no server needed)
+- ✅ Pink Kirby (P1) & Blue Kirby (P2)
+- ✅ Float / fly mechanic with configurable flap count
+- ✅ 9 enemy types with unique copy abilities
+- ✅ Live physics debug panel (tilde key)
+- ✅ 7 levels
+- ✅ Stars, health items (Maxim Tomato), moving platforms
+- ✅ In-game chat (Y key)
 
 ## Architecture
 
@@ -42,24 +66,21 @@ Host (P1)                      Client (P2)
   │                                  │
   │  ←── input snapshot ────────────│
   │                                  │
-  │  ──── state sync (20fps) ───────→│
+  │  ──── state sync (60fps) ───────→│
   │       (positions, enemies, etc.) │
 ```
 
 - **Host** runs authoritative physics for all entities
 - **Client** sends input and receives state corrections
-- Both render their local view via canvas pixel art sprites
 
 ## Tech Stack
 
 - Pure HTML5 + Canvas (no framework)
 - ES6 Modules
 - [PeerJS](https://peerjs.com/) for WebRTC peer-to-peer
-- Pixel art sprites drawn programmatically via Canvas 2D
+- Sprites drawn programmatically via Canvas 2D
 
 ## Development (local)
-
-Serve the folder with any static server to test locally:
 
 ```bash
 npx serve .
@@ -67,14 +88,4 @@ npx serve .
 python -m http.server 8080
 ```
 
-Then open `http://localhost:8080` and use `?solo=1` to test without a peer:
-
-```
-http://localhost:8080?solo=1
-```
-
-## Deployment to GitHub Pages
-
-1. Push this repository to GitHub
-2. Go to **Settings → Pages → Source → Deploy from branch → main**
-3. Site will be live at `https://<username>.github.io/<repo>/`
+Then open `http://localhost:8080`
