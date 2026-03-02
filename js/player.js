@@ -93,6 +93,9 @@ export class Player {
 
     const onGndPrev = this.onGround;
 
+    // ── Fire dash cooldown tick ──────────────────────
+    if (this._fireDashCooldown > 0) this._fireDashCooldown--;
+
     // ── Fire dash override ───────────────────────────
     if (this._fireDash > 0) {
       this._fireDash--;
@@ -353,7 +356,7 @@ export class Player {
       if (blink) {
         const strength = this._fireDashCooldown / 120;
         ctx.save();
-        ctx.globalAlpha = 0.30 * strength;
+        ctx.globalAlpha = 0.55 * strength;
         ctx.fillStyle = '#FF6600';
         ctx.shadowColor = '#FF8800'; ctx.shadowBlur = 12;
         ctx.beginPath();
