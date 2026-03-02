@@ -2,7 +2,7 @@
 //  collectibles.js  –  Stars, health items, particles, score pops
 // ============================================================
 
-import { TILE, GRAVITY, MAX_FALL } from './constants.js';
+import { TILE, GRAVITY, MAX_FALL, SOLID_TILES } from './constants.js';
 import { resolveEntity } from './physics.js';
 
 let _nextId = 1000;
@@ -289,24 +289,25 @@ export class IceBreath {
   get freezes() { return true; }
 }
 
+// Tile-solid helper used by WaterBall
+function _tileIsSolid(level, col, row) {
+  return SOLID_TILES.has(level.get(col, row));
+}
+
 export class WaterBall {
   constructor(x, y, dir) {
     this.id  = _nextId++;
-    this.x   = x - 7;   // centre on spawn point
-    this.y   = y - 7;
-    this.vx  = dir * 5.5;
-    this.vy  = -2.5;     // slight upward arc on fire
-    this.w   = 14;
-    this.h   = 14;
+    this.x   = x - 10;
+    this.y   = y - 10;
+    this.vx  = dir * 5.0;
+    this.vy  = -3.0;
+    this.w   = 20;
+    this.h   = 20;
     this.dead = false;
-    this._life        = 220;  // frames before forced expiry
-    this._bounces     = 0;
-    this._maxBounces  = 6;
-    this._squishTimer = 0;    // frames of squish animation remaining
-    // flags expected by resolveEntity
-    this.onGround   = false;
-    this.hitWall    = false;
-    this.hitCeiling = false;
+    this._life       = 260;
+    this._bounces    = 0;
+    this._maxBounces = 7;
+    this._squishTimer = 0;
   }
 
   update(level, dt) {
@@ -315,79 +316,101 @@ export class WaterBall {
     if (this._life <= 0) { this.dead = true; return; }
     if (this._squishTimer > 0) this._squishTimer -= dt;
 
-    // Gravity (pixels/frame²)
-    this.vy = Math.min(this.vy + 0.30 * dt, 14);
+    this.vy = Math.min(this.vy + 0.32 * dt, 14);
+    const W = this.w, H = this.h;
 
-    // Save velocities before resolveEntity zeroes them on contact
-    const prevVx = this.vx;
-    const prevVy = this.vy;
-
-    // Reset collision flags
-    this.onGround = false; this.hitWall = false; this.hitCeiling = false;
-
-    // Move + tile collision
-    resolveEntity(this, level);
-
-    // ── Bounce off floor ──────────────────────────────────
-    if (this.onGround) {
-      this._bounces++;
-      if (this._bounces > this._maxBounces) { this.dead = true; return; }
-      // Reflect with damping; ensure minimum bounce height
-      const speed = Math.max(Math.abs(prevVy), 2.5);
-      this.vy = -speed * (0.62 - this._bounces * 0.07); // softer each bounce
-      this._squishTimer = 5;
+    // ── X axis ────────────────────────────────────────────
+    this.x += this.vx * dt;
+    if (this.vx > 0) {
+      const col = Math.floor((this.x + W - 1) / TILE);
+      const r0  = Math.floor(this.y / TILE);
+      const r1  = Math.floor((this.y + H - 1) / TILE);
+      let hit = this.x + W > level.widthPx;
+      if (!hit) for (let r = r0; r <= r1; r++) if (_tileIsSolid(level, col, r)) { hit = true; break; }
+      if (hit) {
+        this.x  = hit && this.x + W <= level.widthPx ? col * TILE - W - 1 : level.widthPx - W - 1;
+        this.vx = -Math.abs(this.vx) * 0.72;
+      }
+    } else if (this.vx < 0) {
+      const col = Math.floor(this.x / TILE);
+      const r0  = Math.floor(this.y / TILE);
+      const r1  = Math.floor((this.y + H - 1) / TILE);
+      let hit = this.x < 0;
+      if (!hit) for (let r = r0; r <= r1; r++) if (_tileIsSolid(level, col, r)) { hit = true; break; }
+      if (hit) {
+        this.x  = this.x >= 0 ? (col + 1) * TILE + 1 : 1;
+        this.vx = Math.abs(this.vx) * 0.72;
+      }
     }
 
-    // ── Bounce off ceiling ────────────────────────────────
-    if (this.hitCeiling) {
-      this.vy = Math.abs(prevVy) * 0.55;
-      this._squishTimer = 5;
-    }
-
-    // ── Bounce off walls (tiles or level edges) ───────────
-    if (this.hitWall || this.x < 0 || this.x + this.w > level.widthPx) {
-      if (this.x < 0)                      this.x = 0;
-      if (this.x + this.w > level.widthPx) this.x = level.widthPx - this.w;
-      this.vx = -prevVx * 0.78;
+    // ── Y axis ────────────────────────────────────────────
+    this.y += this.vy * dt;
+    if (this.vy > 0) {
+      const row = Math.floor((this.y + H - 1) / TILE);
+      const c0  = Math.floor(this.x / TILE);
+      const c1  = Math.floor((this.x + W - 1) / TILE);
+      let hit = this.y + H > level.heightPx;
+      if (!hit) for (let c = c0; c <= c1; c++) if (_tileIsSolid(level, c, row)) { hit = true; break; }
+      if (hit) {
+        // Snap 2px above surface to prevent re-trigger next frame
+        this.y = hit && this.y + H <= level.heightPx ? row * TILE - H - 2 : level.heightPx - H - 2;
+        this._bounces++;
+        if (this._bounces > this._maxBounces) { this.dead = true; return; }
+        const spd = Math.max(Math.abs(this.vy), 2.8);
+        this.vy = -spd * Math.max(0.65 - this._bounces * 0.08, 0.18);
+        this._squishTimer = 6;
+      }
+    } else if (this.vy < 0) {
+      const row = Math.floor(this.y / TILE);
+      const c0  = Math.floor(this.x / TILE);
+      const c1  = Math.floor((this.x + W - 1) / TILE);
+      let hit = this.y < 0;
+      if (!hit) for (let c = c0; c <= c1; c++) if (_tileIsSolid(level, c, row)) { hit = true; break; }
+      if (hit) {
+        this.y  = this.y >= 0 ? (row + 1) * TILE + 1 : 1;
+        this.vy = Math.abs(this.vy) * 0.55;
+      }
     }
   }
 
   draw(ctx, cam) {
     if (this.dead) return;
     const a  = Math.min(1, this._life / 50);
-    const cx = this.x - cam.x + 7;
-    const cy = this.y - cam.y + 7;
+    const r  = this.w / 2;
+    const cx = this.x - cam.x + r;
+    const cy = this.y - cam.y + r;
 
-    // Squish/stretch on bounce: compress vertically, expand horizontally
-    const sq   = this._squishTimer > 0 ? 1 + (this._squishTimer / 5) * 0.45 : 1;
-    const rx   = 7 * sq;          // wide on impact
-    const ry   = 7 / sq;          // flat on impact
+    const sq = this._squishTimer > 0 ? 1 + (this._squishTimer / 6) * 0.5 : 1;
+    const rx = r * sq;
+    const ry = r / sq;
 
     ctx.save();
     ctx.globalAlpha = a;
 
-    // Outer ball
-    ctx.fillStyle   = '#0077BB';
-    ctx.shadowColor = '#22CCFF'; ctx.shadowBlur = 12;
+    ctx.shadowColor = '#33DDFF'; ctx.shadowBlur = 16;
+    ctx.fillStyle = '#0088CC';
     ctx.beginPath();
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Inner highlight
-    ctx.shadowBlur  = 0;
-    ctx.fillStyle   = 'rgba(160,230,255,0.80)';
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#22AAEE';
     ctx.beginPath();
-    ctx.ellipse(cx - rx * 0.28, cy - ry * 0.28, rx * 0.38, ry * 0.38, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, rx * 0.72, ry * 0.72, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ground-splash ripple (expands outward on bounce)
+    ctx.fillStyle = 'rgba(180,240,255,0.85)';
+    ctx.beginPath();
+    ctx.ellipse(cx - rx * 0.28, cy - ry * 0.3, rx * 0.32, ry * 0.32, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+
     if (this._squishTimer > 0) {
-      const fr = 1 - this._squishTimer / 5;
-      ctx.globalAlpha = a * (1 - fr) * 0.65;
-      ctx.strokeStyle = '#55BBFF';
-      ctx.lineWidth   = 1.5;
+      const fr = 1 - this._squishTimer / 6;
+      ctx.globalAlpha = a * (1 - fr) * 0.6;
+      ctx.strokeStyle = '#66CCFF';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.ellipse(cx, cy + ry, (10 + fr * 14) * sq, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy + ry + 1, (r + fr * 16) * sq, 3, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
 
