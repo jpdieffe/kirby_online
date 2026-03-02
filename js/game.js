@@ -466,7 +466,7 @@ export class Game {
             owner.score += pts;
             this._addScorePop(enemy.x, enemy.y, String(pts));
           }
-          if (!(proj instanceof LightningBolt) && !(proj instanceof SumoStomp)) proj.dead = true;
+          if (!(proj instanceof LightningBolt) && !(proj instanceof SumoStomp) && !(proj instanceof WaterBall)) proj.dead = true;
         }
       }
     }

@@ -291,31 +291,106 @@ export class IceBreath {
 
 export class WaterBall {
   constructor(x, y, dir) {
-    this.id   = _nextId++;
-    this.x = x; this.y = y;
-    this.vx = dir * 7; this.vy = -1;
-    this.w = 14; this.h = 14;
+    this.id  = _nextId++;
+    this.x   = x - 7;   // centre on spawn point
+    this.y   = y - 7;
+    this.vx  = dir * 5.5;
+    this.vy  = -2.5;     // slight upward arc on fire
+    this.w   = 14;
+    this.h   = 14;
     this.dead = false;
-    this._life = 60;
+    this._life        = 220;  // frames before forced expiry
+    this._bounces     = 0;
+    this._maxBounces  = 6;
+    this._squishTimer = 0;    // frames of squish animation remaining
+    // flags expected by resolveEntity
+    this.onGround   = false;
+    this.hitWall    = false;
+    this.hitCeiling = false;
   }
+
   update(level, dt) {
-    if (this.dead) return; this._life -= dt;
+    if (this.dead) return;
+    this._life -= dt;
     if (this._life <= 0) { this.dead = true; return; }
-    this.x += this.vx * dt; this.vy += 0.12 * dt; this.y += this.vy * dt;
-    if (level.isSolid(Math.floor(this.x / 32), Math.floor(this.y / 32))) this.dead = true;
+    if (this._squishTimer > 0) this._squishTimer -= dt;
+
+    // Gravity (pixels/frame²)
+    this.vy = Math.min(this.vy + 0.30 * dt, 14);
+
+    // Save velocities before resolveEntity zeroes them on contact
+    const prevVx = this.vx;
+    const prevVy = this.vy;
+
+    // Reset collision flags
+    this.onGround = false; this.hitWall = false; this.hitCeiling = false;
+
+    // Move + tile collision
+    resolveEntity(this, level);
+
+    // ── Bounce off floor ──────────────────────────────────
+    if (this.onGround) {
+      this._bounces++;
+      if (this._bounces > this._maxBounces) { this.dead = true; return; }
+      // Reflect with damping; ensure minimum bounce height
+      const speed = Math.max(Math.abs(prevVy), 2.5);
+      this.vy = -speed * (0.62 - this._bounces * 0.07); // softer each bounce
+      this._squishTimer = 5;
+    }
+
+    // ── Bounce off ceiling ────────────────────────────────
+    if (this.hitCeiling) {
+      this.vy = Math.abs(prevVy) * 0.55;
+      this._squishTimer = 5;
+    }
+
+    // ── Bounce off walls (tiles or level edges) ───────────
+    if (this.hitWall || this.x < 0 || this.x + this.w > level.widthPx) {
+      if (this.x < 0)                      this.x = 0;
+      if (this.x + this.w > level.widthPx) this.x = level.widthPx - this.w;
+      this.vx = -prevVx * 0.78;
+    }
   }
+
   draw(ctx, cam) {
     if (this.dead) return;
-    const a = this._life / 60;
-    ctx.save(); ctx.globalAlpha = a;
-    ctx.fillStyle = '#0088CC'; ctx.shadowColor = '#00AAFF'; ctx.shadowBlur = 8;
+    const a  = Math.min(1, this._life / 50);
+    const cx = this.x - cam.x + 7;
+    const cy = this.y - cam.y + 7;
+
+    // Squish/stretch on bounce: compress vertically, expand horizontally
+    const sq   = this._squishTimer > 0 ? 1 + (this._squishTimer / 5) * 0.45 : 1;
+    const rx   = 7 * sq;          // wide on impact
+    const ry   = 7 / sq;          // flat on impact
+
+    ctx.save();
+    ctx.globalAlpha = a;
+
+    // Outer ball
+    ctx.fillStyle   = '#0077BB';
+    ctx.shadowColor = '#22CCFF'; ctx.shadowBlur = 12;
     ctx.beginPath();
-    ctx.arc(this.x - cam.x + 7, this.y - cam.y + 7, 7, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#88CCFF';
+
+    // Inner highlight
+    ctx.shadowBlur  = 0;
+    ctx.fillStyle   = 'rgba(160,230,255,0.80)';
     ctx.beginPath();
-    ctx.arc(this.x - cam.x + 5, this.y - cam.y + 5, 3, 0, Math.PI * 2);
+    ctx.ellipse(cx - rx * 0.28, cy - ry * 0.28, rx * 0.38, ry * 0.38, -0.4, 0, Math.PI * 2);
     ctx.fill();
+
+    // Ground-splash ripple (expands outward on bounce)
+    if (this._squishTimer > 0) {
+      const fr = 1 - this._squishTimer / 5;
+      ctx.globalAlpha = a * (1 - fr) * 0.65;
+      ctx.strokeStyle = '#55BBFF';
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + ry, (10 + fr * 14) * sq, 3, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 }
