@@ -385,8 +385,12 @@ export class Game {
         this._swordSlash(player);
         return;
       case ABILITY.FIRE:
-        proj = new FireBreath(cx, cy, dir);
-        break;
+        if (player._fireDash === 0) {
+          player._fireDash    = 120; // 2 seconds
+          player._fireDashDir = dir;
+          player._fireTrail   = [];
+        }
+        return; // no projectile
       case ABILITY.ICE:
         proj = new IceBreath(cx, cy, dir);
         break;
@@ -529,6 +533,13 @@ export class Game {
       for (const enemy of this.enemies) {
         if (enemy.dead || enemy.remove || enemy.beingInhaled) continue;
         if (!overlaps(player, enemy)) continue;
+
+        // Fire dash — Kirby is the weapon, kills on contact, cannot be hurt
+        if (player._fireDash > 0) {
+          const pts = enemy.kill();
+          if (pts > 0) { player.score += pts; this._addScorePop(enemy.x, enemy.y, String(pts)); }
+          continue;
+        }
 
         if (stompCheck(player, enemy)) {
           const pts = enemy.stomp();

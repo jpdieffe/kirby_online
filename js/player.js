@@ -60,6 +60,11 @@ export class Player {
     // 2-hit ability shield
     this._abilityHits    = 0;
 
+    // Fire dash (ability-use becomes a fireball charge)
+    this._fireDash    = 0;    // frames remaining (120 = 2 s)
+    this._fireDashDir = 1;    // +1 right, -1 left
+    this._fireTrail   = [];   // [{x,y}] positions for the flame tail
+
     // Event flags checked by game.js each frame
     this._justSpit         = null;  // enemy that was spit out (for InhaleStar creation)
     this._justUsedAbility  = false; // ability type fired this frame
@@ -87,35 +92,51 @@ export class Player {
 
     const onGndPrev = this.onGround;
 
-    // ── Horizontal movement ──────────────────────────
-    if (input.left)  { this.vx = -CFG.WALK_SPD; this.facingRight = false; }
-    else if (input.right) { this.vx = CFG.WALK_SPD; this.facingRight = true; }
-    else this.vx *= 0.75; // friction
+    // ── Fire dash override ───────────────────────────
+    if (this._fireDash > 0) {
+      this._fireDash--;
+      this.vx = this._fireDashDir * CFG.WALK_SPD * 2.6;
+      this.facingRight = this._fireDashDir > 0;
+      this.isInhaling = false;
+      if (this._drawFrame % 2 === 0) {
+        this._fireTrail.push({ x: this.x, y: this.y });
+        if (this._fireTrail.length > 12) this._fireTrail.shift();
+      }
+    }
 
-    // ── Inhale toggle ────────────────────────────────
-    if (this.inhaledEnemy) {
-      // Gordo mode: down = swallow, space = spit
-      this.isInhaling = false;
-      if (input.down && !this._prevDown) {
-        this._swallow();
-      } else if (input.actionJust) {
-        this._spit();
+    // ── Horizontal movement (skipped during fire dash) ──
+    if (this._fireDash === 0) {
+      if (input.left)  { this.vx = -CFG.WALK_SPD; this.facingRight = false; }
+      else if (input.right) { this.vx = CFG.WALK_SPD; this.facingRight = true; }
+      else { this.vx *= 0.75; if (Math.abs(this.vx) < 0.5) this.vx = 0; }
+    }
+
+    // ── Inhale toggle (skipped during fire dash) ─────
+    if (this._fireDash === 0) {
+      if (this.inhaledEnemy) {
+        // Gordo mode: down = swallow, space = spit
+        this.isInhaling = false;
+        if (input.down && !this._prevDown) {
+          this._swallow();
+        } else if (input.actionJust) {
+          this._spit();
+        }
+      } else if (this.copyAbility !== null) {
+        // Use ability on actionJust; R drops it
+        this.isInhaling = false;
+        if (input.actionJust) {
+          this._useAbility();
+        }
+        if (input.dropJust) {
+          this._justDropAbility = this.copyAbility;  // stash for game.js
+          this.copyAbility  = null;
+          this.abilityAmmo  = 0;
+          this._abilityHits = 0;
+        }
+      } else {
+        // Inhale when no ability
+        this.isInhaling = !!(input.action);
       }
-    } else if (this.copyAbility !== null) {
-      // Use ability on actionJust; R drops it
-      this.isInhaling = false;
-      if (input.actionJust) {
-        this._useAbility();
-      }
-      if (input.dropJust) {
-        this._justDropAbility = this.copyAbility;  // stash for game.js
-        this.copyAbility  = null;
-        this.abilityAmmo  = 0;
-        this._abilityHits = 0;
-      }
-    } else {
-      // Inhale when no ability
-      this.isInhaling = !!(input.action);
     }
     this._prevDown = input.down;
 
@@ -183,7 +204,8 @@ export class Player {
     if (this.isInhaling)   { this.state = PSTATE.INHALING; return; }
     if (this.isFloating)   { this.state = PSTATE.FLOAT; return; }
     if (!this.onGround)    { this.state = this.vy < 0 ? PSTATE.JUMP : PSTATE.FALL; return; }
-    if (this.vx !== 0)     { this.state = PSTATE.WALK; return; }
+    // Use threshold so friction slide doesn't hold walk anim after releasing key
+    if (Math.abs(this.vx) > 0.5) { this.state = PSTATE.WALK; return; }
     this.state = PSTATE.IDLE;
   }
 
@@ -282,6 +304,44 @@ export class Player {
       sx, sy, W, H
     );
 
+    // Fire dash — fireball engulfs Kirby with a flame tail
+    if (this._fireDash > 0) {
+      const frac = this._fireDash / 120;
+      // Trail (older positions, drawn first = behind)
+      for (let i = 0; i < this._fireTrail.length; i++) {
+        const t   = this._fireTrail[i];
+        const age = (i + 1) / this._fireTrail.length; // 0=oldest, 1=newest
+        ctx.save();
+        ctx.globalAlpha = age * frac * 0.65;
+        ctx.shadowColor = '#FF6600'; ctx.shadowBlur = 10;
+        ctx.fillStyle   = `hsl(${15 + (1 - age) * 25}, 100%, 52%)`;
+        ctx.beginPath();
+        ctx.arc(t.x - camera.x + W / 2, t.y - camera.y + H / 2, 6 + age * 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      // Main fireball over Kirby
+      const flicker = Math.sin(Date.now() / 38) * 2.5;
+      const r = 16 + flicker;
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.shadowColor = '#FFAA00'; ctx.shadowBlur = 28;
+      ctx.fillStyle = '#FF4400';
+      ctx.beginPath();
+      ctx.arc(sx + W / 2, sy + H / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#FFBB00';
+      ctx.beginPath();
+      ctx.arc(sx + W / 2, sy + H / 2, r * 0.58, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFACC';
+      ctx.beginPath();
+      ctx.arc(sx + W / 2 - r * 0.22, sy + H / 2 - r * 0.22, r * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     // Inhale wind lines (drawn on top of sprite when inhaling)
     if (this.state === PSTATE.INHALING || this.isInhaling) {
       const fr = this.facingRight;
@@ -318,6 +378,8 @@ export class Player {
       isFloating:   this.isFloating,
       floatFlaps:   this.floatFlaps,
       inhaledId:    this.inhaledEnemy?.id ?? null,
+      fireDash:     this._fireDash,
+      fireDashDir:  this._fireDashDir,
     };
   }
 
@@ -337,6 +399,8 @@ export class Player {
     this.isInhaling  = s.isInhaling ?? false;
     this.isFloating  = s.isFloating ?? false;
     this.floatFlaps  = s.floatFlaps ?? CFG.MAX_FLOAT_FLAPS;
+    this._fireDash    = s.fireDash    ?? 0;
+    this._fireDashDir = s.fireDashDir ?? 1;
     // inhaledEnemy resolved by game.js using inhaledId
   }
 }
