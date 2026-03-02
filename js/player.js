@@ -61,9 +61,10 @@ export class Player {
     this._abilityHits    = 0;
 
     // Fire dash (ability-use becomes a fireball charge)
-    this._fireDash    = 0;    // frames remaining (120 = 2 s)
-    this._fireDashDir = 1;    // +1 right, -1 left
-    this._fireTrail   = [];   // [{x,y}] positions for the flame tail
+    this._fireDash        = 0;    // frames remaining
+    this._fireDashCooldown = 0;   // frames until next dash is allowed
+    this._fireDashDir     = 1;    // +1 right, -1 left
+    this._fireTrail       = [];   // [{x,y}] positions for the flame tail
 
     // Event flags checked by game.js each frame
     this._justSpit         = null;  // enemy that was spit out (for InhaleStar creation)
@@ -102,6 +103,7 @@ export class Player {
         this._fireTrail.push({ x: this.x, y: this.y });
         if (this._fireTrail.length > 12) this._fireTrail.shift();
       }
+      if (this._fireDash === 0) this._fireDashCooldown = 120; // 2 s cooldown
     }
 
     // ── Horizontal movement (skipped during fire dash) ──
@@ -380,6 +382,7 @@ export class Player {
       inhaledId:    this.inhaledEnemy?.id ?? null,
       fireDash:     this._fireDash,
       fireDashDir:  this._fireDashDir,
+      fireDashCD:   this._fireDashCooldown,
     };
   }
 
@@ -401,6 +404,7 @@ export class Player {
     this.floatFlaps  = s.floatFlaps ?? CFG.MAX_FLOAT_FLAPS;
     this._fireDash    = s.fireDash    ?? 0;
     this._fireDashDir = s.fireDashDir ?? 1;
+    this._fireDashCooldown = s.fireDashCD ?? 0;
     // inhaledEnemy resolved by game.js using inhaledId
   }
 }

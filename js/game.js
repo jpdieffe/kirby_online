@@ -385,8 +385,8 @@ export class Game {
         this._swordSlash(player);
         return;
       case ABILITY.FIRE:
-        if (player._fireDash === 0) {
-          player._fireDash    = 120; // 2 seconds
+        if (player._fireDash === 0 && player._fireDashCooldown === 0) {
+          player._fireDash    = 60; // 1 second
           player._fireDashDir = dir;
           player._fireTrail   = [];
         }
