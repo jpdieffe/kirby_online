@@ -126,7 +126,9 @@ export class Player {
       } else if (this.copyAbility !== null) {
         // Use ability on actionJust; R drops it
         this.isInhaling = false;
-        if (input.actionJust) {
+        // Guard: don't accept fire input while the dash cooldown is active
+        const onFireCD = this.copyAbility === ABILITY.FIRE && this._fireDashCooldown > 0;
+        if (input.actionJust && !onFireCD) {
           this._useAbility();
         }
         if (input.dropJust) {
@@ -308,7 +310,7 @@ export class Player {
 
     // Fire dash — fireball engulfs Kirby with a flame tail
     if (this._fireDash > 0) {
-      const frac = this._fireDash / 120;
+      const frac = this._fireDash / 60;
       // Trail (older positions, drawn first = behind)
       for (let i = 0; i < this._fireTrail.length; i++) {
         const t   = this._fireTrail[i];
@@ -342,6 +344,23 @@ export class Player {
       ctx.arc(sx + W / 2 - r * 0.22, sy + H / 2 - r * 0.22, r * 0.26, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    }
+
+    // Fire dash cooldown blink — orange pulse tint over Kirby
+    if (this._fireDashCooldown > 0) {
+      // Fast blink: 6-frame on/off cycle, fades out as cooldown expires
+      const blink = Math.floor(this._drawFrame / 6) % 2 === 0;
+      if (blink) {
+        const strength = this._fireDashCooldown / 120;
+        ctx.save();
+        ctx.globalAlpha = 0.30 * strength;
+        ctx.fillStyle = '#FF6600';
+        ctx.shadowColor = '#FF8800'; ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(sx + W / 2, sy + H / 2, W * 0.72, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     // Inhale wind lines (drawn on top of sprite when inhaling)
