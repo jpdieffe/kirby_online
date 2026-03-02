@@ -20,7 +20,7 @@ import {
 } from './collectibles.js';
 import { overlaps, stompCheck } from './physics.js';
 import { preloadSprites } from './sprites.js';
-import { preloadKirbySprites } from './kirby_sprites.js';
+import { preloadKirbySprites, triggerKirbyLightningStrike } from './kirby_sprites.js';
 
 const STATE = {
   LOADING:  'loading',
@@ -398,6 +398,7 @@ export class Game {
         break;
       case ABILITY.LIGHTNING:
         proj = new LightningBolt(player.x + player.w / 2, player.y - 80, player.y + player.h + 48);
+        triggerKirbyLightningStrike();
         break;
       case ABILITY.SUMO:
         proj = new SumoStomp(player.x + player.w / 2, player.y + player.h, 96);

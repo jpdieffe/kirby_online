@@ -498,11 +498,14 @@ function _drawRockAbility(ctx, x, y, w, h) {
 
 // ─ LIGHTNING ──────────────────────────────────────────────
 
-const _lightningBolts = Array.from({length: 3}, (_, i) => ({
-  ox:     (i / 2 - 0.5) * 1.0,
-  period: 0.20 + i * 0.09,
-  phase:  (i / 3) * Math.PI * 2,
-}));
+// Positions of the 3 screen-bolt columns (relative to Kirby centre, in sprite-widths)
+const _boltOffsets = [-0.38, 0, 0.38];
+
+// Set by triggerKirbyLightningStrike(); controls when the strike effect is shown.
+let _lightningStrikeUntil = 0;
+export function triggerKirbyLightningStrike() {
+  _lightningStrikeUntil = Date.now() + 380; // ~23 frames @ 60 fps, matches hitbox life
+}
 
 // Draws a jagged screen-bolt from (cx, startY) down to (cx, endY).
 // seed → deterministic jitter so the shape only changes every ~100 ms.
@@ -564,21 +567,21 @@ function _drawLightningAbility(ctx, x, y, w, h) {
     ctx.fillStyle = sg; ctx.fill();
     ctx.restore();
   }
-  // Full-screen lightning bolts — originate at top of canvas, strike Kirby's centre
-  const boltSeed = Math.floor(t * 10); // ~100 ms quantised so shape doesn't flicker every frame
-  for (const b of _lightningBolts) {
-    // pseudo-random "is this slot active?" — ~28 % duty cycle per bolt
-    const slotVal = Math.abs(Math.sin(boltSeed * 0.37 + b.phase * 11.3 + b.ox * 5.7));
-    if (slotVal > 0.28) continue;
-    const alpha = 0.55 + (0.28 - slotVal) / 0.28 * 0.45;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.shadowColor = '#FFFF88'; ctx.shadowBlur = 22;
-    const bx   = cx + b.ox * w * 0.38;
-    const seed = boltSeed + Math.round(b.ox * 100 + b.phase * 50);
-    _drawScreenBolt(ctx, bx, 0, y + h * 0.45, seed,     '#FFEE44', 2.5);
-    _drawScreenBolt(ctx, bx, 0, y + h * 0.45, seed + 1, '#FFFFFF', 1.0);
-    ctx.restore();
+  // Full-screen lightning bolts — only show when the ability was just used
+  const now = Date.now();
+  if (now < _lightningStrikeUntil) {
+    const fadeT  = (now - (_lightningStrikeUntil - 380)) / 380; // 0→1 over strike duration
+    const alpha  = 1 - fadeT * 0.6; // fades from 1 to 0.4
+    const seed   = Math.floor(now / 80); // shape changes every ~80 ms
+    for (let i = 0; i < _boltOffsets.length; i++) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = '#FFFFAA'; ctx.shadowBlur = 28;
+      const bx = cx + _boltOffsets[i] * w * 0.55;
+      _drawScreenBolt(ctx, bx, 0, y + h * 0.45, seed + i * 7,     '#FFEE44', 3.0);
+      _drawScreenBolt(ctx, bx, 0, y + h * 0.45, seed + i * 7 + 1, '#FFFFFF', 1.2);
+      ctx.restore();
+    }
   }
   ctx.restore();
 }

@@ -363,23 +363,7 @@ export class LightningBolt {
     this._life -= dt;
     if (this._life <= 0) this.dead = true;
   }
-  draw(ctx, cam) {
-    if (this.dead) return;
-    const alpha = this._life / 20;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.strokeStyle = '#FFEE00'; ctx.shadowColor = '#FFFFFF'; ctx.shadowBlur = 16;
-    ctx.lineWidth = 3 + (this._life / 20) * 4;
-    const sx = this.x - cam.x;
-    const sy = this.y - cam.y;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx - 6, sy + this.h * 0.35);
-    ctx.lineTo(sx + 5, sy + this.h * 0.5);
-    ctx.lineTo(sx - 3, sy + this.h);
-    ctx.stroke();
-    ctx.restore();
-  }
+  draw(_ctx, _cam) { /* visual handled by triggerKirbyLightningStrike in kirby_sprites.js */ }
   overlapsRect(rx, ry, rh) {
     return this.x + 8 > rx && this.x < rx + 8 &&
            this.y < ry + rh && this.y + this.h > ry;
