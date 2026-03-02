@@ -498,12 +498,30 @@ function _drawRockAbility(ctx, x, y, w, h) {
 
 // ─ LIGHTNING ──────────────────────────────────────────────
 
-const _lightningBolts = Array.from({length: 5}, (_, i) => ({
-  ox:     (i/4 - 0.5)*1.6,
-  oy:     (i % 2 === 0 ? -0.25 : 0.3),
-  period: 0.18 + i*0.07,
-  phase:  (i/5)*Math.PI*2,
+const _lightningBolts = Array.from({length: 3}, (_, i) => ({
+  ox:     (i / 2 - 0.5) * 1.0,
+  period: 0.20 + i * 0.09,
+  phase:  (i / 3) * Math.PI * 2,
 }));
+
+// Draws a jagged screen-bolt from (cx, startY) down to (cx, endY).
+// seed → deterministic jitter so the shape only changes every ~100 ms.
+function _drawScreenBolt(ctx, cx, startY, endY, seed, color, lw) {
+  const segs = 10;
+  const totalH = endY - startY;
+  ctx.beginPath();
+  ctx.moveTo(cx, startY);
+  for (let i = 1; i < segs; i++) {
+    const frac   = i / segs;
+    const jitter = Math.sin(seed * 17.3 + i * 97.1) * 18 * Math.sin(frac * Math.PI);
+    ctx.lineTo(cx + jitter, startY + totalH * frac);
+  }
+  ctx.lineTo(cx, endY);
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = lw;
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+}
 
 function _drawBolt(ctx, bx, by, bw, bh, color, lw) {
   const jogs = [0, -0.4, 0.3, -0.2, 0];
@@ -546,18 +564,20 @@ function _drawLightningAbility(ctx, x, y, w, h) {
     ctx.fillStyle = sg; ctx.fill();
     ctx.restore();
   }
-  // flashing bolt particles
+  // Full-screen lightning bolts — originate at top of canvas, strike Kirby's centre
+  const boltSeed = Math.floor(t * 10); // ~100 ms quantised so shape doesn't flicker every frame
   for (const b of _lightningBolts) {
-    const flash = Math.sin(t/b.period*Math.PI*2 + b.phase);
-    if (flash < 0.3) continue;
-    const alpha = (flash - 0.3)/0.7;
+    // pseudo-random "is this slot active?" — ~28 % duty cycle per bolt
+    const slotVal = Math.abs(Math.sin(boltSeed * 0.37 + b.phase * 11.3 + b.ox * 5.7));
+    if (slotVal > 0.28) continue;
+    const alpha = 0.55 + (0.28 - slotVal) / 0.28 * 0.45;
     ctx.save();
-    ctx.globalAlpha = alpha*0.85;
-    ctx.shadowColor = '#FFFF00'; ctx.shadowBlur = 6;
-    const bx = cx + b.ox*w*0.42;
-    const by = y + h*0.3 + b.oy*h*0.25;
-    _drawBolt(ctx, bx, by, w*0.06, h*0.14, '#FFEE44', 0.4);
-    _drawBolt(ctx, bx, by, w*0.06, h*0.14, '#FFFFFF', 0.25);
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = '#FFFF88'; ctx.shadowBlur = 22;
+    const bx   = cx + b.ox * w * 0.38;
+    const seed = boltSeed + Math.round(b.ox * 100 + b.phase * 50);
+    _drawScreenBolt(ctx, bx, 0, y + h * 0.45, seed,     '#FFEE44', 2.5);
+    _drawScreenBolt(ctx, bx, 0, y + h * 0.45, seed + 1, '#FFFFFF', 1.0);
     ctx.restore();
   }
   ctx.restore();

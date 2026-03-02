@@ -83,6 +83,40 @@ export class Game {
     // Overlay message
     this._msg      = null;
     this._msgTimer = 0;
+
+    // ── Debug power menu (~ / tilde) ─────────────────────
+    this._powerMenuOpen  = false;
+    this._powerMenuHover = -1;
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '~') {
+        this._powerMenuOpen = !this._powerMenuOpen;
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'Escape' && this._powerMenuOpen) {
+        this._powerMenuOpen = false;
+        return;
+      }
+      if (this._powerMenuOpen && e.key >= '0' && e.key <= '9') {
+        this._applyDebugPower(parseInt(e.key));
+        this._powerMenuOpen = false;
+      }
+    });
+    this.canvas.addEventListener('mousemove', (e) => {
+      if (!this._powerMenuOpen) { this._powerMenuHover = -1; return; }
+      const r  = this.canvas.getBoundingClientRect();
+      const mx = (e.clientX - r.left) / this._canvas_scale;
+      const my = (e.clientY - r.top)  / this._canvas_scale;
+      this._powerMenuHover = this._hitTestPowerMenu(mx, my);
+    });
+    this.canvas.addEventListener('click', (e) => {
+      if (!this._powerMenuOpen) return;
+      const r  = this.canvas.getBoundingClientRect();
+      const mx = (e.clientX - r.left) / this._canvas_scale;
+      const my = (e.clientY - r.top)  / this._canvas_scale;
+      const idx = this._hitTestPowerMenu(mx, my);
+      if (idx >= 0) { this._applyDebugPower(idx); this._powerMenuOpen = false; }
+    });
   }
 
   setInput(inputInstance) {
@@ -804,6 +838,9 @@ export class Game {
       ctx.fillText(label, CANVAS_W / 2, 17);
       ctx.restore();
     }
+
+    // Debug power selector overlay
+    this._drawPowerMenu(ctx);
   }
 
   // ── Speech bubbles ───────────────────────────────────────
@@ -875,6 +912,101 @@ export class Game {
       const cursor = Math.floor(Date.now() / 500) % 2 === 0 ? '█' : ' ';
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px monospace';
       ctx.fillText('> ' + this._localInput.chatBuffer + cursor, CHAT_X + PAD, iy + LINE_H - 8);
+    }
+    ctx.restore();
+  }
+
+  // ── Debug power menu ─────────────────────────────────────
+
+  _applyDebugPower(idx) {
+    if (!this.players?.[this.localIdx]) return;
+    const ORDER = [
+      null,
+      ABILITY.SWORD, ABILITY.FIRE, ABILITY.ICE, ABILITY.WATER, ABILITY.ROCK,
+      ABILITY.LIGHTNING, ABILITY.NINJA, ABILITY.SUMO, ABILITY.LEAF,
+    ];
+    const ability = ORDER[idx] ?? null;
+    const p = this.players[this.localIdx];
+    p.copyAbility  = ability;
+    p.abilityAmmo  = ability ? Infinity : 0;
+    p._abilityHits = 0;
+  }
+
+  _hitTestPowerMenu(mx, my) {
+    const COL = 2, BTN_W = 148, BTN_H = 36, GAP = 6, PAD = 14, HDR = 34, ROWS = 5;
+    const panelW = COL * BTN_W + (COL - 1) * GAP + PAD * 2;
+    const panelH = HDR + ROWS * BTN_H + (ROWS - 1) * GAP + PAD * 2;
+    const panelX = (CANVAS_W - panelW) / 2;
+    const panelY = (CANVAS_H - panelH) / 2;
+    for (let i = 0; i < 10; i++) {
+      const col = i % COL, row = Math.floor(i / COL);
+      const bx = panelX + PAD + col * (BTN_W + GAP);
+      const by = panelY + HDR + PAD + row * (BTN_H + GAP);
+      if (mx >= bx && mx <= bx + BTN_W && my >= by && my <= by + BTN_H) return i;
+    }
+    return -1;
+  }
+
+  _drawPowerMenu(ctx) {
+    if (!this._powerMenuOpen) return;
+    const POWERS = [
+      { label: 'None',      icon: '\u2715', color: '#999999' },
+      { label: 'Sword',     icon: '\u2694', color: '#C8C8C8' },
+      { label: 'Fire',      icon: '\uD83D\uDD25', color: '#FF6600' },
+      { label: 'Ice',       icon: '\u2744', color: '#55CCFF' },
+      { label: 'Water',     icon: '\uD83D\uDCA7', color: '#0099FF' },
+      { label: 'Rock',      icon: '\uD83E\uDEA8', color: '#AA9966' },
+      { label: 'Lightning', icon: '\u26A1', color: '#FFE800' },
+      { label: 'Ninja',     icon: '\u2734', color: '#AAAAEE' },
+      { label: 'Sumo',      icon: '\uD83D\uDD34', color: '#FF6644' },
+      { label: 'Leaf',      icon: '\uD83C\uDF43', color: '#44BB44' },
+    ];
+    const ORDER = [
+      null,
+      ABILITY.SWORD, ABILITY.FIRE, ABILITY.ICE, ABILITY.WATER, ABILITY.ROCK,
+      ABILITY.LIGHTNING, ABILITY.NINJA, ABILITY.SUMO, ABILITY.LEAF,
+    ];
+    const COL = 2, BTN_W = 148, BTN_H = 36, GAP = 6, PAD = 14, HDR = 34, ROWS = 5;
+    const panelW = COL * BTN_W + (COL - 1) * GAP + PAD * 2;
+    const panelH = HDR + ROWS * BTN_H + (ROWS - 1) * GAP + PAD * 2;
+    const panelX = (CANVAS_W - panelW) / 2;
+    const panelY = (CANVAS_H - panelH) / 2;
+
+    ctx.save();
+    // Panel
+    ctx.fillStyle   = 'rgba(8,8,18,0.90)';
+    ctx.strokeStyle = 'rgba(255,200,60,0.55)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, panelH, 10); ctx.fill(); ctx.stroke();
+    // Header
+    ctx.fillStyle = '#FFD060';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('\uD83D\uDD27 DEBUG POWER  [~ close  \u00B7  0-9 quick select]', panelX + panelW / 2, panelY + 22);
+
+    const cur = this.players?.[this.localIdx]?.copyAbility ?? null;
+    for (let i = 0; i < 10; i++) {
+      const col = i % COL, row = Math.floor(i / COL);
+      const bx = panelX + PAD + col * (BTN_W + GAP);
+      const by = panelY + HDR + PAD + row * (BTN_H + GAP);
+      const isActive = ORDER[i] === cur;
+      const isHover  = this._powerMenuHover === i;
+      ctx.fillStyle   = isActive ? 'rgba(255,215,50,0.22)'
+                      : isHover  ? 'rgba(255,255,255,0.10)'
+                                 : 'rgba(255,255,255,0.04)';
+      ctx.strokeStyle = isActive ? 'rgba(255,215,50,0.85)'
+                      : isHover  ? 'rgba(255,255,255,0.45)'
+                                 : 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = isActive ? 1.5 : 1;
+      ctx.beginPath(); ctx.roundRect(bx, by, BTN_W, BTN_H, 6); ctx.fill(); ctx.stroke();
+      // Key hint
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('[' + i + ']', bx + 5, by + 12);
+      // Icon + label
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillStyle = POWERS[i].color;
+      ctx.fillText(POWERS[i].icon + '  ' + POWERS[i].label, bx + 22, by + BTN_H / 2 + 5);
     }
     ctx.restore();
   }
