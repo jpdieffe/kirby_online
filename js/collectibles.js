@@ -587,6 +587,125 @@ export function spawnBlockBreak(col, row) {
   return parts;
 }
 
+// ─────────────────────────────────────────────────────────
+// ─── FrozenBlock ─────────────────────────────────────────
+// Created when IceBreath hits an enemy.  Acts as terrain:
+// players can stand on top and push it (starts sliding).
+// Bounces off walls forever.  Kills enemies while sliding.
+// ─────────────────────────────────────────────────────────
+export class FrozenBlock {
+  constructor(enemy) {
+    // Pad the enemy bounding box to give a nice block (min 28×28)
+    this.w = Math.max(enemy.w + 4, 28);
+    this.h = Math.max(enemy.h + 4, 28);
+    // Centre the block over the enemy
+    this.x = enemy.x + (enemy.w - this.w) / 2;
+    this.y = enemy.y + (enemy.h - this.h) / 2;
+    this.vx          = 0;
+    this.vy          = 0;
+    this.dead        = false;
+    this._slideSpeed = 3.5;   // px · frame⁻¹ when sliding
+  }
+
+  get isSliding() { return Math.abs(this.vx) > 0.1; }
+
+  update(level, dt) {
+    if (this.dead) return;
+    const W = this.w, H = this.h;
+
+    // ── Gravity ───────────────────────────────────────────
+    this.vy = Math.min(this.vy + 0.40 * dt, 14);
+
+    // ── Y axis ────────────────────────────────────────────
+    this.y += this.vy * dt;
+    if (this.vy > 0) {
+      const row = Math.floor((this.y + H - 1) / TILE);
+      const c0  = Math.floor(this.x / TILE);
+      const c1  = Math.floor((this.x + W - 1) / TILE);
+      let hit = this.y + H > level.heightPx;
+      if (!hit) for (let c = c0; c <= c1; c++) { if (_tileIsSolid(level, c, row)) { hit = true; break; } }
+      if (hit) {
+        this.y  = hit && this.y + H <= level.heightPx ? row * TILE - H : level.heightPx - H;
+        this.vy = 0;
+      }
+    } else if (this.vy < 0) {
+      const row = Math.floor(this.y / TILE);
+      const c0  = Math.floor(this.x / TILE);
+      const c1  = Math.floor((this.x + W - 1) / TILE);
+      let hit = this.y < 0;
+      if (!hit) for (let c = c0; c <= c1; c++) { if (_tileIsSolid(level, c, row)) { hit = true; break; } }
+      if (hit) { this.y = this.y >= 0 ? (row + 1) * TILE : 0; this.vy = 0; }
+    }
+
+    // ── X axis (only while sliding) ───────────────────────
+    if (this.isSliding) {
+      this.x += this.vx * dt;
+      if (this.vx > 0) {
+        const col = Math.floor((this.x + W - 1) / TILE);
+        const r0  = Math.floor(this.y / TILE);
+        const r1  = Math.floor((this.y + H - 1) / TILE);
+        let hit = this.x + W > level.widthPx;
+        if (!hit) for (let r = r0; r <= r1; r++) { if (_tileIsSolid(level, col, r)) { hit = true; break; } }
+        if (hit) {
+          this.x  = hit && this.x + W <= level.widthPx ? col * TILE - W : level.widthPx - W;
+          this.vx = -this._slideSpeed;
+        }
+      } else {
+        const col = Math.floor(this.x / TILE);
+        const r0  = Math.floor(this.y / TILE);
+        const r1  = Math.floor((this.y + H - 1) / TILE);
+        let hit = this.x < 0;
+        if (!hit) for (let r = r0; r <= r1; r++) { if (_tileIsSolid(level, col, r)) { hit = true; break; } }
+        if (hit) {
+          this.x  = hit && this.x >= 0 ? (col + 1) * TILE : 0;
+          this.vx = this._slideSpeed;
+        }
+      }
+    }
+
+    // ── Fall out of world ─────────────────────────────────
+    if (this.y > level.heightPx + 200) this.dead = true;
+  }
+
+  draw(ctx, cam) {
+    if (this.dead) return;
+    const sx  = this.x - cam.x;
+    const sy  = this.y - cam.y;
+    const W   = this.w, H = this.h;
+    const cx_ = sx + W / 2, cy_ = sy + H / 2;
+
+    ctx.save();
+    // Ice block body
+    ctx.fillStyle   = 'rgba(110, 205, 255, 0.78)';
+    ctx.strokeStyle = '#99EEFF';
+    ctx.lineWidth   = 2;
+    ctx.shadowColor = '#66CCFF';
+    ctx.shadowBlur  = 8;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(sx, sy, W, H, 5);
+    else ctx.rect(sx, sy, W, H);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.stroke();
+    // Top highlight strip (glassy look)
+    ctx.fillStyle = 'rgba(220, 248, 255, 0.55)';
+    ctx.fillRect(sx + 3, sy + 3, W - 6, 6);
+    // 6-spoke snowflake
+    ctx.strokeStyle = 'rgba(200, 242, 255, 0.90)';
+    ctx.lineWidth   = 1.5;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI;
+      const dx = Math.cos(angle) * 7;
+      const dy = Math.sin(angle) * 7;
+      ctx.beginPath();
+      ctx.moveTo(cx_ - dx, cy_ - dy);
+      ctx.lineTo(cx_ + dx, cy_ + dy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
 // ── Internal helpers ──────────────────────────────────────
 
 function _drawStar5(ctx, cx, cy, outerR, innerR) {

@@ -16,7 +16,7 @@ import {
 import {
   Star, HealthItem, InhaleStar, AbilityStar,
   FireBreath, IceBreath, WaterBall, NinjaStar, LightningBolt, SumoStomp, LeafTornado,
-  Particle, ScorePop, spawnBlockBreak,
+  FrozenBlock, Particle, ScorePop, spawnBlockBreak,
 } from './collectibles.js';
 import { overlaps, stompCheck } from './physics.js';
 import { preloadSprites } from './sprites.js';
@@ -74,7 +74,8 @@ export class Game {
     this.scorePops  = [];
     this.inhaleStars= [];   // InhaleStar projectiles (spit)
     this.abilityStars=[];   // AbilityStar drops
-    this.abilityProjs = []; // FireBreath, IceBreath, etc. projectiles
+    this.abilityProjs  = []; // FireBreath, IceBreath, etc. projectiles
+    this.frozenBlocks  = []; // Ice-frozen enemies (solid sliding terrain)
 
     // Chat
     this._chatLog      = [];
@@ -295,6 +296,7 @@ export class Game {
     for (const s of this.inhaleStars) s.update(this.level, 1);
     for (const a of this.abilityStars) a.update(this.level, 1);
     for (const p of this.abilityProjs) p.update(this.level, 1);
+    for (const fb of this.frozenBlocks) fb.update(this.level, 1);
     for (const p of this.particles)   p.update(1);
     for (const s of this.scorePops)   s.update(1);
 
@@ -307,6 +309,7 @@ export class Game {
     this.inhaleStars  = this.inhaleStars.filter(s => !s.dead);
     this.abilityStars = this.abilityStars.filter(a => !a.dead);
     this.abilityProjs = this.abilityProjs.filter(p => !p.dead);
+    this.frozenBlocks = this.frozenBlocks.filter(fb => !fb.dead);
     this.particles    = this.particles.filter(p => !p.dead);
     this.scorePops    = this.scorePops.filter(s => !s.dead);
 
@@ -453,6 +456,57 @@ export class Game {
     }
   }
 
+  // ── Frozen block ↔ players & enemies ───────────────────────
+
+  _handleFrozenBlockCollisions() {
+    // Player ↔ frozen block (stand on top / push from side)
+    for (const player of this._activePlayers()) {
+      if (player.state === PSTATE.DEAD) continue;
+      for (const fb of this.frozenBlocks) {
+        if (fb.dead) continue;
+        const pBottom = player.y + player.h;
+        const onTop = player.x + player.w > fb.x + 2 &&
+                      player.x < fb.x + fb.w - 2 &&
+                      pBottom >= fb.y - 4 && pBottom <= fb.y + 10 &&
+                      player.vy >= 0;
+        if (onTop) {
+          player.y  = fb.y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          player.x += fb.vx; // ride the sliding block
+        } else if (overlaps(player, fb)) {
+          // Side collision: push the block, block pushes the player back
+          const pcx = player.x + player.w / 2;
+          const bcx = fb.x + fb.w / 2;
+          if (pcx < bcx) {
+            if (fb.vx <= 0) fb.vx = fb._slideSpeed;  // push right
+            player.x = fb.x - player.w;
+          } else {
+            if (fb.vx >= 0) fb.vx = -fb._slideSpeed; // push left
+            player.x = fb.x + fb.w;
+          }
+        }
+      }
+    }
+
+    // Sliding frozen block ↔ enemies (kills on contact)
+    for (const fb of this.frozenBlocks) {
+      if (fb.dead || !fb.isSliding) continue;
+      for (const enemy of this.enemies) {
+        if (enemy.dead || enemy.remove) continue;
+        if (overlaps(fb, enemy)) {
+          const pts = enemy.kill();
+          if (pts > 0) {
+            const owner = this._activePlayers().find(p => p.copyAbility === ABILITY.ICE)
+                          ?? this._activePlayers()[0];
+            owner.score += pts;
+            this._addScorePop(enemy.x, enemy.y, String(pts));
+          }
+        }
+      }
+    }
+  }
+
   // ── Ability projectile ↔ enemy ───────────────────────────
 
   _handleAbilityProjCollision() {
@@ -464,13 +518,20 @@ export class Game {
           ? proj.overlapsRect(enemy.x, enemy.y, enemy.h)
           : overlaps(proj, enemy);
         if (hit) {
-          const pts = enemy.kill();
-          if (pts > 0) {
-            const owner = this.players.find(p => p.copyAbility !== null) ?? this.players[0];
-            owner.score += pts;
-            this._addScorePop(enemy.x, enemy.y, String(pts));
+          if (proj.freezes) {
+            // Ice: encase the enemy in a frozen block instead of killing
+            enemy.remove = true;
+            this.frozenBlocks.push(new FrozenBlock(enemy));
+            proj.dead = true;
+          } else {
+            const pts = enemy.kill();
+            if (pts > 0) {
+              const owner = this.players.find(p => p.copyAbility !== null) ?? this.players[0];
+              owner.score += pts;
+              this._addScorePop(enemy.x, enemy.y, String(pts));
+            }
+            if (!(proj instanceof LightningBolt) && !(proj instanceof SumoStomp) && !(proj instanceof WaterBall)) proj.dead = true;
           }
-          if (!(proj instanceof LightningBolt) && !(proj instanceof SumoStomp) && !(proj instanceof WaterBall)) proj.dead = true;
         }
       }
     }
@@ -583,6 +644,7 @@ export class Game {
       // Block hits from below (jump up into block)
       this._checkBlockHits(player);
     }
+    this._handleFrozenBlockCollisions();
   }
 
   _hurtPlayer(player) {
@@ -805,6 +867,9 @@ export class Game {
     for (const s of this.stars)       s.draw(ctx, cam);
     for (const h of this.healthItems) h.draw(ctx, cam);
     for (const a of this.abilityStars) a.draw(ctx, cam);
+
+    // Frozen blocks (drawn before enemies so they look like terrain)
+    for (const fb of this.frozenBlocks) fb.draw(ctx, cam);
 
     // Enemies
     for (const e of this.enemies) e.draw(ctx, cam);
