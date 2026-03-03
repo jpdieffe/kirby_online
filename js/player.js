@@ -11,7 +11,7 @@ import { drawKirby } from './kirby_sprites.js';
 const W  = 24;
 const H  = 24;
 const INVULN_FRAMES  = 90;
-const STOMP_BOUNCE   = -7;
+const STOMP_BOUNCE   = -5;
 
 // Body colours for each player index
 const KIRBY_COLORS = ['#FF7BAC', '#88AAFF'];
@@ -63,6 +63,9 @@ export class Player {
     // Fire dash (ability-use becomes a fireball charge)
     this._fireDash        = 0;    // frames remaining
     this._fireDashCooldown = 0;   // frames until next dash is allowed
+
+    // Ice shot cooldown (1 s = 60 frames)
+    this._iceCooldown = 0;
     this._fireDashDir     = 1;    // +1 right, -1 left
     this._fireTrail       = [];   // [{x,y}] positions for the flame tail
 
@@ -93,8 +96,9 @@ export class Player {
 
     const onGndPrev = this.onGround;
 
-    // ── Fire dash cooldown tick ──────────────────────
+    // ── Cooldown ticks ────────────────────────────────
     if (this._fireDashCooldown > 0) this._fireDashCooldown--;
+    if (this._iceCooldown      > 0) this._iceCooldown--;
 
     // ── Fire dash override ───────────────────────────
     if (this._fireDash > 0) {
@@ -129,9 +133,10 @@ export class Player {
       } else if (this.copyAbility !== null) {
         // Use ability on actionJust; R drops it
         this.isInhaling = false;
-        // Guard: don't accept fire input while the dash cooldown is active
+        // Guard: don't accept fire/ice input while on cooldown
         const onFireCD = this.copyAbility === ABILITY.FIRE && this._fireDashCooldown > 0;
-        if (input.actionJust && !onFireCD) {
+        const onIceCD  = this.copyAbility === ABILITY.ICE  && this._iceCooldown > 0;
+        if (input.actionJust && !onFireCD && !onIceCD) {
           this._useAbility();
         }
         if (input.dropJust) {
@@ -222,6 +227,7 @@ export class Player {
     if (this.copyAbility === null) return null;
     const used = this.copyAbility;
     this._justUsedAbility = used;  // game.js reads this to spawn projectile
+    if (used === ABILITY.ICE) this._iceCooldown = 60; // 1 s cooldown
     // Ability is NEVER consumed by use – only lost when hit twice
     return used;
   }
@@ -405,6 +411,7 @@ export class Player {
       fireDash:     this._fireDash,
       fireDashDir:  this._fireDashDir,
       fireDashCD:   this._fireDashCooldown,
+      iceCD:        this._iceCooldown,
     };
   }
 
@@ -427,6 +434,7 @@ export class Player {
     this._fireDash    = s.fireDash    ?? 0;
     this._fireDashDir = s.fireDashDir ?? 1;
     this._fireDashCooldown = s.fireDashCD ?? 0;
+    this._iceCooldown      = s.iceCD      ?? 0;
     // inhaledEnemy resolved by game.js using inhaledId
   }
 }
