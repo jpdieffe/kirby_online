@@ -84,6 +84,20 @@ class Enemy {
           this.x = fb.x + fb.w;
         }
         this.hitWall = true;
+        // Crush check: if a tile wall (or level edge) is right behind the
+        // enemy after being pushed, they're pinched and should die.
+        const behindCol = this.x + this.w / 2 < fb.x + fb.w / 2
+          ? Math.floor((this.x - 1) / TILE)                 // pushed left
+          : Math.floor((this.x + this.w) / TILE);           // pushed right
+        const r0 = Math.floor(this.y / TILE);
+        const r1 = Math.floor((this.y + this.h - 1) / TILE);
+        let crushed = this.x <= 0 || this.x + this.w >= level.widthPx;
+        if (!crushed) {
+          for (let r = r0; r <= r1; r++) {
+            if (level.isSolid(behindCol, r)) { crushed = true; break; }
+          }
+        }
+        if (crushed) { this.kill(); return; }
       }
     }
 
