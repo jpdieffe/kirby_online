@@ -64,9 +64,9 @@ class Enemy {
     const prevDir = Math.sign(this.vx) || -1;
     resolveEntity(this, level);
 
-    // ── Frozen block collision (treat as solid wall / floor) ───
+    // ── Frozen block collision (stationary only → treat as wall) ───
     for (const fb of _frozenBlocks) {
-      if (fb.dead) continue;
+      if (fb.dead || fb.isSliding) continue;
       if (this.x + this.w <= fb.x || this.x >= fb.x + fb.w ||
           this.y + this.h <= fb.y || this.y >= fb.y + fb.h) continue;
       const overlapX = Math.min(this.x + this.w - fb.x, fb.x + fb.w - this.x);
@@ -84,20 +84,6 @@ class Enemy {
           this.x = fb.x + fb.w;
         }
         this.hitWall = true;
-        // Crush check: if a tile wall (or level edge) is right behind the
-        // enemy after being pushed, they're pinched and should die.
-        const behindCol = this.x + this.w / 2 < fb.x + fb.w / 2
-          ? Math.floor((this.x - 1) / TILE)                 // pushed left
-          : Math.floor((this.x + this.w) / TILE);           // pushed right
-        const r0 = Math.floor(this.y / TILE);
-        const r1 = Math.floor((this.y + this.h - 1) / TILE);
-        let crushed = this.x <= 0 || this.x + this.w >= level.widthPx;
-        if (!crushed) {
-          for (let r = r0; r <= r1; r++) {
-            if (level.isSolid(behindCol, r)) { crushed = true; break; }
-          }
-        }
-        if (crushed) { this.kill(); return; }
       }
     }
 
