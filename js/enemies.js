@@ -8,6 +8,10 @@ import { resolveEntity } from './physics.js';
 
 let _nextId = 1;
 
+// Frozen blocks injected from game.js each frame so enemies treat them as walls
+let _frozenBlocks = [];
+export function setFrozenBlocks(blocks) { _frozenBlocks = blocks; }
+
 // ── Base enemy ────────────────────────────────────────────
 
 class Enemy {
@@ -59,6 +63,29 @@ class Enemy {
 
     const prevDir = Math.sign(this.vx) || -1;
     resolveEntity(this, level);
+
+    // ── Frozen block collision (treat as solid wall / floor) ───
+    for (const fb of _frozenBlocks) {
+      if (fb.dead) continue;
+      if (this.x + this.w <= fb.x || this.x >= fb.x + fb.w ||
+          this.y + this.h <= fb.y || this.y >= fb.y + fb.h) continue;
+      const overlapX = Math.min(this.x + this.w - fb.x, fb.x + fb.w - this.x);
+      const overlapY = Math.min(this.y + this.h - fb.y, fb.y + fb.h - this.y);
+      if (overlapY < overlapX) {
+        if (this.y + this.h / 2 < fb.y + fb.h / 2) {
+          this.y = fb.y - this.h; this.vy = 0; this.onGround = true;
+        } else {
+          this.y = fb.y + fb.h; this.vy = 0;
+        }
+      } else {
+        if (this.x + this.w / 2 < fb.x + fb.w / 2) {
+          this.x = fb.x - this.w;
+        } else {
+          this.x = fb.x + fb.w;
+        }
+        this.hitWall = true;
+      }
+    }
 
     if (this.hitWall) {
       this.vx = -prevDir * this._spd;

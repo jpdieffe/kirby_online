@@ -12,6 +12,7 @@ import { Camera }  from './camera.js';
 import {
   SwordKnight, HotHead, Chilly, Droppy, Rocky, Sparky,
   BioSpark, SumoKnight, LeafWaddle, createEnemy, createEnemyByType,
+  setFrozenBlocks,
 } from './enemies.js';
 import {
   Star, HealthItem, InhaleStar, AbilityStar,
@@ -234,9 +235,9 @@ export class Game {
       }
 
       // Enemies
+      setFrozenBlocks(this.frozenBlocks);
       for (const e of this.enemies) e.update(this.level, 1);
       this.enemies = this.enemies.filter(e => !e.remove);
-      this._handleEnemyFrozenBlockCollisions();
 
       // Collisions (authoritative on host)
       this._handleCollisions();
@@ -257,9 +258,9 @@ export class Game {
       }
     } else {
       // Client: shadow simulate
+      setFrozenBlocks(this.frozenBlocks);
       for (const e of this.enemies) e.update(this.level, 1);
       this.enemies = this.enemies.filter(e => !e.remove);
-      this._handleEnemyFrozenBlockCollisions();
       this._handleCollisions();
     }
 
@@ -455,43 +456,6 @@ export class Game {
         Math.sin(angle) * speed - 1,
         '#E8E8FF', 14
       ));
-    }
-  }
-
-  // ── Enemy ↔ frozen block (turn around / stand on top) ──────
-
-  _handleEnemyFrozenBlockCollisions() {
-    for (const enemy of this.enemies) {
-      if (enemy.dead || enemy.remove || enemy.beingInhaled) continue;
-      for (const fb of this.frozenBlocks) {
-        if (fb.dead) continue;
-        // Quick reject
-        if (enemy.x + enemy.w <= fb.x || enemy.x >= fb.x + fb.w ||
-            enemy.y + enemy.h <= fb.y || enemy.y >= fb.y + fb.h) continue;
-        // Penetration depths on each axis
-        const overlapX = Math.min(enemy.x + enemy.w - fb.x, fb.x + fb.w - enemy.x);
-        const overlapY = Math.min(enemy.y + enemy.h - fb.y, fb.y + fb.h - enemy.y);
-        if (overlapY < overlapX) {
-          // Vertical collision — land on top or hit from below
-          if (enemy.y + enemy.h / 2 < fb.y + fb.h / 2) {
-            enemy.y  = fb.y - enemy.h;
-            enemy.vy = 0;
-            enemy.onGround = true;
-          } else {
-            enemy.y = fb.y + fb.h;
-            enemy.vy = 0;
-          }
-        } else {
-          // Horizontal collision — turn around (same as tile wall)
-          if (enemy.x + enemy.w / 2 < fb.x + fb.w / 2) {
-            enemy.x  = fb.x - enemy.w;
-            enemy.vx = -Math.abs(enemy.vx || enemy._spd);
-          } else {
-            enemy.x  = fb.x + fb.w;
-            enemy.vx =  Math.abs(enemy.vx || enemy._spd);
-          }
-        }
-      }
     }
   }
 
