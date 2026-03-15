@@ -216,6 +216,34 @@ export class AbilityStar {
     ctx.fillText(this.icon, 0, 1);
     ctx.restore();
   }
+
+  serialize() {
+    return {
+      id:           this.id,
+      x:            Math.round(this.x),
+      y:            Math.round(this.y),
+      vx:           +this.vx.toFixed(2),
+      vy:           +this.vy.toFixed(2),
+      ability:      this.ability,
+      color:        this.color,
+      icon:         this.icon,
+      dead:         this.dead,
+      life:         Math.round(this._life),
+      onGround:     this.onGround,
+      pickupDelay:  Math.round(this._pickupDelay),
+    };
+  }
+
+  applyState(s) {
+    this.x             = s.x;
+    this.y             = s.y;
+    this.vx            = s.vx ?? this.vx;
+    this.vy            = s.vy ?? this.vy;
+    this.dead          = s.dead;
+    this.onGround      = s.onGround ?? this.onGround;
+    if (s.life         !== undefined) this._life         = s.life;
+    if (s.pickupDelay  !== undefined) this._pickupDelay  = s.pickupDelay;
+  }
 }
 
 // ── Ability projectiles ───────────────────────────────────
@@ -593,8 +621,10 @@ export function spawnBlockBreak(col, row) {
 // players can stand on top and push it (starts sliding).
 // Bounces off walls forever.  Kills enemies while sliding.
 // ─────────────────────────────────────────────────────────
+let _fbNextId = 1;
 export class FrozenBlock {
   constructor(enemy) {
+    this.id = _fbNextId++;
     // Pad the enemy bounding box to give a nice block (min 28×28)
     this.w = Math.max(enemy.w + 4, 28);
     this.h = Math.max(enemy.h + 4, 28);
@@ -703,6 +733,31 @@ export class FrozenBlock {
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  serialize() {
+    return {
+      id:          this.id,
+      x:           Math.round(this.x),
+      y:           Math.round(this.y),
+      vx:          +this.vx.toFixed(2),
+      vy:          +this.vy.toFixed(2),
+      w:           this.w,
+      h:           this.h,
+      dead:        this.dead,
+      slideSpeed:  this._slideSpeed,
+    };
+  }
+
+  applyState(s) {
+    this.x          = s.x;
+    this.y          = s.y;
+    this.vx         = s.vx ?? 0;
+    this.vy         = s.vy ?? 0;
+    this.dead       = s.dead;
+    if (s.w !== undefined)          this.w           = s.w;
+    if (s.h !== undefined)          this.h           = s.h;
+    if (s.slideSpeed !== undefined) this._slideSpeed = s.slideSpeed;
   }
 }
 

@@ -272,17 +272,71 @@ function parseLevel(levelDef) {
   };
 }
 
+// ── Level width expansion (doubles each level's length) ──
+
+function _expandLevelWidth(parsed) {
+  const origCols = parsed.width;
+
+  // Detect bordered levels: solid-invisible walls on both left and right edges.
+  const isBordered = parsed.height > 0 &&
+    parsed.tiles[0][0]             === T.SOLID_INVISIBLE &&
+    parsed.tiles[0][origCols - 1]  === T.SOLID_INVISIBLE;
+
+  // For bordered: inner section has (origCols-2) tiles; new layout = [border][inner][inner][border]
+  // For open:    simple doubling.
+  const innerLen   = isBordered ? origCols - 2 : origCols;
+  const innerOffset = isBordered ? innerLen     : origCols; // where second copy starts in new row
+  const newCols    = isBordered ? innerLen * 2 + 2 : origCols * 2;
+
+  // Extend tile rows
+  const newTiles = parsed.tiles.map(row => {
+    const newRow = new Uint8Array(newCols);
+    if (isBordered) {
+      newRow[0]          = T.SOLID_INVISIBLE;  // keep left border
+      newRow[newCols - 1] = T.SOLID_INVISIBLE; // new right border
+      for (let c = 1; c < origCols - 1; c++) {
+        newRow[c]                = row[c]; // first inner half  (positions 1..innerLen)
+        newRow[innerOffset + c]  = row[c]; // second inner half (positions innerLen+1..2*innerLen)
+        //  c=1 → innerOffset+1 ; c=innerLen → 2*innerLen = newCols-2 ✓  (no overlap with inner1)
+      }
+    } else {
+      newRow.set(row, 0);            // first half
+      newRow.set(row, innerOffset);  // second half
+    }
+    return newRow;
+  });
+
+  // Duplicate spawns for the second half (skip border columns)
+  const newSpawns = [...parsed.spawns];
+  for (const sp of parsed.spawns) {
+    if (isBordered) {
+      if (sp.col > 0 && sp.col < origCols - 1) {
+        newSpawns.push({ ...sp, col: sp.col + innerOffset });
+        //  col c in inner1 → inner2 col = c + innerOffset (innerOffset = innerLen = origCols-2)
+      }
+    } else {
+      newSpawns.push({ ...sp, col: sp.col + innerOffset });
+    }
+  }
+
+  // Place goal near the far right of the doubled level
+  const newGoalCol = isBordered ? newCols - 3 : newCols - 3;
+
+  return { ...parsed, tiles: newTiles, spawns: newSpawns, goalCol: newGoalCol, width: newCols };
+}
+
 // ── Level class ───────────────────────────────────────────
 
 export class Level {
   constructor(index) {
-    const def = LEVELS[index % LEVELS.length];
+    const def    = LEVELS[index % LEVELS.length];
     const parsed = parseLevel(def);
+    const expanded = _expandLevelWidth(parsed);
 
-    this.tiles    = parsed.tiles;
-    this.spawns   = parsed.spawns;
-    this.goalCol  = parsed.goalCol;
-    this.cols     = parsed.width;
+    this.tiles    = expanded.tiles;
+    this.spawns   = expanded.spawns;
+    this.goalCol  = expanded.goalCol;
+    this.cols     = expanded.width;
     this.rows     = parsed.height;
     this.bgTop    = parsed.bgTop;
     this.bgBottom = parsed.bgBottom;

@@ -4,12 +4,18 @@
 
 import { CANVAS_W, CANVAS_H, TILE } from './constants.js';
 
+// How much to zoom out the world view (< 1 = more world visible).
+// 0.80 shows 25 % more level width/height than unzoomed.
+export const ZOOM = 0.80;
+
 export class Camera {
   constructor(levelWidthPx, levelHeightPx) {
     this.x = 0;
     this.y = 0;
-    this.w = CANVAS_W;
-    this.h = CANVAS_H;
+    this.zoom = ZOOM;
+    // Viewport dimensions in world-space units (larger → shows more world)
+    this.w = CANVAS_W / ZOOM;
+    this.h = CANVAS_H / ZOOM;
     this.levelW = levelWidthPx;
     this.levelH = levelHeightPx;
   }

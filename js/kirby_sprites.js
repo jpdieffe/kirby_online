@@ -501,10 +501,10 @@ function _drawRockAbility(ctx, x, y, w, h) {
 // Positions of the 3 screen-bolt columns (relative to Kirby centre, in sprite-widths)
 const _boltOffsets = [-0.38, 0, 0.38];
 
-// Set by triggerKirbyLightningStrike(); controls when the strike effect is shown.
-let _lightningStrikeUntil = 0;
-export function triggerKirbyLightningStrike() {
-  _lightningStrikeUntil = Date.now() + 380; // ~23 frames @ 60 fps, matches hitbox life
+// Set by triggerKirbyLightningStrike(playerIdx); tracks per-player strike timing.
+const _lightningStrikeUntil = [0, 0];
+export function triggerKirbyLightningStrike(playerIdx = 0) {
+  _lightningStrikeUntil[playerIdx & 1] = Date.now() + 380; // ~23 frames @ 60 fps, matches hitbox life
 }
 
 // Draws a jagged screen-bolt from (cx, startY) down to (cx, endY).
@@ -534,7 +534,7 @@ function _drawBolt(ctx, bx, by, bw, bh, color, lw) {
   ctx.strokeStyle = color; ctx.lineWidth = bw*lw; ctx.stroke();
 }
 
-function _drawLightningAbility(ctx, x, y, w, h) {
+function _drawLightningAbility(ctx, x, y, w, h, playerIdx) {
   const t = Date.now() / 1000;
   const cx = x + w*0.5;
   const topY = y + h*0.04;
@@ -567,10 +567,10 @@ function _drawLightningAbility(ctx, x, y, w, h) {
     ctx.fillStyle = sg; ctx.fill();
     ctx.restore();
   }
-  // Full-screen lightning bolts — only show when the ability was just used
+  // Full-screen lightning bolts — only show when this player used the ability
   const now = Date.now();
-  if (now < _lightningStrikeUntil) {
-    const fadeT  = (now - (_lightningStrikeUntil - 380)) / 380; // 0→1 over strike duration
+  if (now < _lightningStrikeUntil[playerIdx & 1]) {
+    const fadeT  = (now - (_lightningStrikeUntil[playerIdx & 1] - 380)) / 380; // 0→1 over strike duration
     const alpha  = 1 - fadeT * 0.6; // fades from 1 to 0.4
     const seed   = Math.floor(now / 80); // shape changes every ~80 ms
     for (let i = 0; i < _boltOffsets.length; i++) {
@@ -857,14 +857,14 @@ function _drawLeafParticles(ctx, x, y, w, h) {
 
 // ── Ability overlay dispatch ──────────────────────────────
 
-function _drawAbilityOverlay(ctx, ability, x, y, w, h, facingRight) {
+function _drawAbilityOverlay(ctx, ability, x, y, w, h, facingRight, playerIdx) {
   switch (ability) {
     case 'fire':      _drawFireAbility     (ctx, x, y, w, h, facingRight); break;
     case 'ice':       _drawIceAbility      (ctx, x, y, w, h); break;
     case 'sword':     _drawSwordAbility    (ctx, x, y, w, h, facingRight); break;
     case 'water':     _drawWaterAbility    (ctx, x, y, w, h); break;
     case 'rock':      _drawRockAbility     (ctx, x, y, w, h); break;
-    case 'lightning': _drawLightningAbility(ctx, x, y, w, h); break;
+    case 'lightning': _drawLightningAbility(ctx, x, y, w, h, playerIdx, playerIdx); break;
     case 'ninja':     _drawNinjaAbility    (ctx, x, y, w, h, facingRight); break;
     case 'sumo':      _drawSumoAbility     (ctx, x, y, w, h); break;
     case 'leaf':
@@ -921,5 +921,5 @@ export function drawKirby(ctx, playerIdx, state, facingRight, _af, ability, extr
   ctx.drawImage(sprite, x, y, w, h);
 
   // Canvas-drawn ability overlay (crown + particles)
-  if (ability) _drawAbilityOverlay(ctx, ability, x, y, w, h, facingRight);
+  if (ability) _drawAbilityOverlay(ctx, ability, x, y, w, h, facingRight, playerIdx);
 }

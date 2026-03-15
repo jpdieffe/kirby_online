@@ -164,6 +164,7 @@ export class Game {
     this.inhaleStars = [];
     this.abilityStars= [];
     this.abilityProjs= [];
+    this.frozenBlocks= [];
 
     if (this.isHost) this._spawnLevelEntities();
 
@@ -408,7 +409,11 @@ export class Game {
         break;
       case ABILITY.LIGHTNING:
         proj = new LightningBolt(player.x + player.w / 2, player.y - 80, player.y + player.h + 48);
-        triggerKirbyLightningStrike();
+        triggerKirbyLightningStrike(player.id);
+        // Notify the remote peer so they see the effect for this player
+        if (this.net && this.peerConnected) {
+          this.net.send({ type: MSG.EVENT, event: 'LIGHTNING', pid: player.id });
+        }
         break;
       case ABILITY.SUMO:
         proj = new SumoStomp(player.x + player.w / 2, player.y + player.h, 96);
@@ -722,21 +727,33 @@ export class Game {
   }
 
   _resetAndReload(idx) {
+    // Preserve copy abilities across level transitions
+    const savedAbilities = this.players.map(p => ({
+      copyAbility: p.copyAbility,
+      abilityAmmo: p.abilityAmmo,
+    }));
     const wasPeer = this.peerConnected;
     this.load(idx);
     this.peerConnected = wasPeer;
-    for (const p of this.players) { p.hp = 3; p.lives = 3; p.state = PSTATE.IDLE; }
+    for (let i = 0; i < this.players.length; i++) {
+      const p = this.players[i];
+      p.hp = 3; p.lives = 3; p.state = PSTATE.IDLE;
+      p.copyAbility = savedAbilities[i].copyAbility;
+      p.abilityAmmo = savedAbilities[i].abilityAmmo;
+    }
   }
 
   // ── Network ──────────────────────────────────────────────
 
   _sendStateSync() {
     this.net.send({
-      type:      MSG.STATE,
-      frame:     this._frame,
-      players:   this.players.map(p => p.serialize()),
-      enemies:   this.enemies.map(e => e.serialize()),
-      stars:     this.stars.map(s => ({ id: s.id, dead: s.dead })),
+      type:         MSG.STATE,
+      frame:        this._frame,
+      players:      this.players.map(p => p.serialize()),
+      enemies:      this.enemies.map(e => e.serialize()),
+      stars:        this.stars.map(s => ({ id: s.id, dead: s.dead })),
+      frozenBlocks: this.frozenBlocks.map(fb => fb.serialize()),
+      abilityStars: this.abilityStars.map(a => a.serialize()),
     });
   }
 
@@ -766,6 +783,33 @@ export class Game {
       const hostIds = new Set(msg.enemies.map(e => e.id));
       this.enemies = this.enemies.filter(e => hostIds.has(e.id));
     }
+    if (msg.frozenBlocks) {
+      for (const fbs of msg.frozenBlocks) {
+        let fb = this.frozenBlocks.find(f => f.id === fbs.id);
+        if (!fb) {
+          // Reconstruct from serialized dimensions so the constructor maths work out
+          fb = new FrozenBlock({ x: fbs.x, y: fbs.y, w: fbs.w - 4, h: fbs.h - 4 });
+          fb.id = fbs.id;
+          this.frozenBlocks.push(fb);
+        }
+        fb.applyState(fbs);
+      }
+      const fbHostIds = new Set(msg.frozenBlocks.map(f => f.id));
+      this.frozenBlocks = this.frozenBlocks.filter(f => fbHostIds.has(f.id));
+    }
+    if (msg.abilityStars) {
+      for (const as of msg.abilityStars) {
+        let star = this.abilityStars.find(a => a.id === as.id);
+        if (!star) {
+          star = new AbilityStar(as.x, as.y, as.ability, { color: as.color, icon: as.icon });
+          star.id = as.id;
+          this.abilityStars.push(star);
+        }
+        star.applyState(as);
+      }
+      const asHostIds = new Set(msg.abilityStars.map(a => a.id));
+      this.abilityStars = this.abilityStars.filter(a => asHostIds.has(a.id));
+    }
   }
 
   _applyEvent(msg) {
@@ -777,6 +821,9 @@ export class Game {
       case 'GAME_OVER':
         this._state = STATE.GAMEOVER;
         this._showMsg('Game Over!');
+        break;
+      case 'LIGHTNING':
+        triggerKirbyLightningStrike(msg.pid ?? 0);
         break;
       case 'HURT':   /* visual handled locally */ break;
       case 'STOMP':  break;
@@ -841,18 +888,24 @@ export class Game {
   // ── Render ───────────────────────────────────────────────
 
   render() {
-    const ctx = this.ctx;
-    const cam = this.camera;
+    const ctx  = this.ctx;
+    const cam  = this.camera;
+    const zoom = cam.zoom ?? 1;
 
-    // Background gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+    // ── Zoomed world rendering ─────────────────────────
+    ctx.save();
+    ctx.scale(zoom, zoom);
+
+    // Background gradient (sized to world viewport, then scaled to canvas)
+    const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_H / zoom);
     grad.addColorStop(0, this.level?.bgTop    ?? '#87CEEB');
     grad.addColorStop(1, this.level?.bgBottom ?? '#B0E0FF');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, CANVAS_W / zoom, CANVAS_H / zoom);
 
     if (this._state === STATE.LOADING) {
       ctx.fillStyle = '#fff'; ctx.font = '24px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('Loading…', CANVAS_W / 2, CANVAS_H / 2); ctx.textAlign = 'left';
+      ctx.fillText('Loading…', (CANVAS_W / zoom) / 2, (CANVAS_H / zoom) / 2); ctx.textAlign = 'left';
+      ctx.restore();
       return;
     }
 
@@ -889,8 +942,13 @@ export class Game {
     for (const p of this.particles)    p.draw(ctx, cam);
     for (const s of this.scorePops)    s.draw(ctx, cam);
 
-    // Speech bubbles & chat
+    // Speech bubbles (world-space positions — must be inside zoom transform)
     this._drawSpeechBubbles(ctx, cam);
+
+    ctx.restore();
+    // ── End zoomed world rendering ──────────────────────
+
+    // ── Canvas-space UI (not affected by zoom) ──────────
     this._drawChatWindow(ctx);
 
     // Overlay message
